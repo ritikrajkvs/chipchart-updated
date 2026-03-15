@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,95 +6,107 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
+    /* Warm paper background with deep charcoal text */
+    --background: 40 33% 94%;
+    --foreground: 20 14% 16%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
+    --card: 40 33% 96%;
+    --card-foreground: 20 14% 16%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
+    --popover: 40 33% 96%;
+    --popover-foreground: 20 14% 16%;
 
-    --primary: 240 5% 12%;
+    /* Bold Terracotta accent for light mode */
+    --primary: 12 76% 61%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 4%;
+    --secondary: 40 20% 85%;
+    --secondary-foreground: 20 14% 16%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 40 20% 85%;
+    --muted-foreground: 20 10% 40%;
 
-    --accent: 252 56% 57%;
+    --accent: 12 76% 61%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 252 56% 57%;
+    --border: 20 14% 16%; /* Sharp, visible borders */
+    --input: 20 14% 16%;
+    --ring: 12 76% 61%;
 
-    --radius: 0.75rem;
+    /* Sharp edges for a neo-brutalist feel */
+    --radius: 0rem;
 
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+    /* Hard, offset shadows instead of soft blur shadows */
+    --shadow-sm: 2px 2px 0px 0px rgba(32,28,26,1);
+    --shadow-md: 4px 4px 0px 0px rgba(32,28,26,1);
+    --shadow-lg: 6px 6px 0px 0px rgba(32,28,26,1);
+    --shadow-xl: 8px 8px 0px 0px rgba(32,28,26,1);
 
     /* Sidebar */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 10% 4%;
-    --sidebar-primary: 252 56% 57%;
+    --sidebar-background: 40 33% 90%;
+    --sidebar-foreground: 20 14% 16%;
+    --sidebar-primary: 12 76% 61%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 10% 4%;
-    --sidebar-border: 240 6% 90%;
-    --sidebar-ring: 252 56% 57%;
+    --sidebar-accent: 40 20% 80%;
+    --sidebar-accent-foreground: 20 14% 16%;
+    --sidebar-border: 20 14% 16%;
+    --sidebar-ring: 12 76% 61%;
   }
 
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 95%;
+    /* Deep Slate/Navy background with off-white text */
+    --background: 220 30% 12%;
+    --foreground: 40 33% 94%;
 
-    --card: 240 6% 8%;
-    --card-foreground: 0 0% 95%;
+    --card: 220 30% 15%;
+    --card-foreground: 40 33% 94%;
 
-    --popover: 240 6% 8%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 220 30% 15%;
+    --popover-foreground: 40 33% 94%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 10% 4%;
+    /* Electric Lime/Chartreuse accent for dark mode */
+    --primary: 75 100% 65%;
+    --primary-foreground: 220 30% 12%;
 
-    --secondary: 240 4% 14%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 220 20% 20%;
+    --secondary-foreground: 40 33% 94%;
 
-    --muted: 240 4% 14%;
-    --muted-foreground: 240 4% 55%;
+    --muted: 220 20% 20%;
+    --muted-foreground: 220 10% 60%;
 
-    --accent: 252 56% 62%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 75 100% 65%;
+    --accent-foreground: 220 30% 12%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 4% 16%;
-    --input: 240 4% 16%;
-    --ring: 252 56% 62%;
+    --border: 40 33% 94%; /* Striking light borders in dark mode */
+    --input: 40 33% 94%;
+    --ring: 75 100% 65%;
 
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
 
-    --sidebar-background: 240 10% 4%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 252 56% 62%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 14%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 240 4% 16%;
-    --sidebar-ring: 252 56% 62%;
+    /* Hard shadows adapted for dark mode */
+    --shadow-sm: 2px 2px 0px 0px rgba(244,240,235,1);
+    --shadow-md: 4px 4px 0px 0px rgba(244,240,235,1);
+    --shadow-lg: 6px 6px 0px 0px rgba(244,240,235,1);
+    --shadow-xl: 8px 8px 0px 0px rgba(244,240,235,1);
+
+    --sidebar-background: 220 30% 10%;
+    --sidebar-foreground: 40 33% 94%;
+    --sidebar-primary: 75 100% 65%;
+    --sidebar-primary-foreground: 220 30% 12%;
+    --sidebar-accent: 220 20% 18%;
+    --sidebar-accent-foreground: 40 33% 94%;
+    --sidebar-border: 40 33% 94%;
+    --sidebar-ring: 75 100% 65%;
   }
 }
 
@@ -105,17 +117,20 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Space Grotesk', monospace, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-family: 'Syne', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-accent to-violet-400 bg-clip-text text-transparent;
+    /* Solid, stark highlighting rather than smooth AI-like gradients */
+    @apply bg-accent text-accent-foreground px-1;
   }
 
   .text-balance {
@@ -125,22 +140,22 @@
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  @apply bg-background border-l border-border;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
+  @apply bg-primary rounded-none border border-border;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/40;
+  @apply bg-accent;
 }
 
 ::selection {
-  @apply bg-accent/20 text-foreground;
+  @apply bg-primary text-primary-foreground;
 }
