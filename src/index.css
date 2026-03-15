@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,108 +6,95 @@
 
 @layer base {
   :root {
-    /* PEARL & HOLOGRAPHIC LIGHT MODE */
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 10% 4%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 10% 4%;
 
-    /* Vibrant Violet */
-    --primary: 270 90% 60%;
+    --primary: 240 5% 12%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 94%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 4%;
 
-    --muted: 210 40% 94%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
 
-    /* Vibrant Cyan */
-    --accent: 190 90% 50%;
+    --accent: 252 56% 57%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 348 100% 61%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 270 90% 60%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 252 56% 57%;
 
-    /* Very smooth, friendly rounded corners */
-    --radius: 1.25rem;
+    --radius: 0.75rem;
 
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
 
-    /* Soft, colorful floating shadows */
-    --shadow-sm: 0 2px 10px -2px rgba(147, 51, 234, 0.1);
-    --shadow-md: 0 8px 20px -4px rgba(147, 51, 234, 0.15);
-    --shadow-lg: 0 16px 30px -4px rgba(147, 51, 234, 0.2);
-    --shadow-xl: 0 24px 40px -8px rgba(147, 51, 234, 0.25);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222.2 84% 4.9%;
-    --sidebar-primary: 270 90% 60%;
+    --sidebar-foreground: 240 10% 4%;
+    --sidebar-primary: 252 56% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 94%;
-    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-    --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 270 90% 60%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 10% 4%;
+    --sidebar-border: 240 6% 90%;
+    --sidebar-ring: 252 56% 57%;
   }
 
   .dark {
-    /* DEEP OBSIDIAN & NEON DARK MODE */
-    --background: 230 40% 6%;
-    --foreground: 210 40% 98%;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
 
-    /* Semi-transparent bases for glass effect */
-    --card: 230 40% 10%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 6% 8%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 230 40% 10%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 6% 8%;
+    --popover-foreground: 0 0% 95%;
 
-    /* Neon Purple */
-    --primary: 270 100% 65%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 10% 4%;
 
-    --secondary: 230 30% 15%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 4% 14%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 230 30% 15%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 4% 55%;
 
-    /* Electric Cyan */
-    --accent: 190 100% 50%;
-    --accent-foreground: 230 40% 6%;
+    --accent: 252 56% 62%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 348 100% 61%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 30% 18%;
-    --input: 230 30% 18%;
-    --ring: 270 100% 65%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 252 56% 62%;
 
-    /* Glowing neon shadows */
-    --shadow-sm: 0 0 15px 0 rgba(168, 85, 247, 0.15);
-    --shadow-md: 0 0 25px 0 rgba(168, 85, 247, 0.2);
-    --shadow-lg: 0 0 35px 0 rgba(168, 85, 247, 0.25);
-    --shadow-xl: 0 0 45px 0 rgba(6, 182, 212, 0.25);
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
 
-    /* Sidebar */
-    --sidebar-background: 230 40% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 270 100% 65%;
+    --sidebar-background: 240 10% 4%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 252 56% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 230 30% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 230 30% 18%;
-    --sidebar-ring: 270 100% 65%;
+    --sidebar-accent: 240 4% 14%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 252 56% 62%;
   }
 }
 
@@ -118,29 +105,17 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-    /* Subtle glowing aurora backdrop */
-    background-image: 
-      radial-gradient(circle at 15% 50%, rgba(168, 85, 247, 0.08), transparent 30%),
-      radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.08), transparent 30%);
-    background-attachment: fixed;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', system-ui, sans-serif;
-    letter-spacing: -0.02em;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 }
 
 @layer utilities {
   .text-gradient {
-    /* A gorgeous vibrant gradient for main headings */
-    @apply bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent;
-  }
-
-  .glass-card {
-    /* Use this class on any container you want to look super premium */
-    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-lg dark:border-white/5;
+    @apply bg-gradient-to-r from-accent to-violet-400 bg-clip-text text-transparent;
   }
 
   .text-balance {
@@ -148,24 +123,24 @@
   }
 }
 
-/* Stunning custom scrollbar */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-background border-l border-border/50;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary/80 rounded-full border-2 border-background;
+  @apply bg-border rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary;
+  @apply bg-muted-foreground/40;
 }
 
 ::selection {
-  @apply bg-primary/30 text-primary-foreground;
+  @apply bg-accent/20 text-foreground;
 }
