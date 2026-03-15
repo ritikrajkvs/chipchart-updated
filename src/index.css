@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,107 +6,108 @@
 
 @layer base {
   :root {
-    /* Warm paper background with deep charcoal text */
-    --background: 40 33% 94%;
-    --foreground: 20 14% 16%;
+    /* PEARL & HOLOGRAPHIC LIGHT MODE */
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
 
-    --card: 40 33% 96%;
-    --card-foreground: 20 14% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
 
-    --popover: 40 33% 96%;
-    --popover-foreground: 20 14% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    /* Bold Terracotta accent for light mode */
-    --primary: 12 76% 61%;
+    /* Vibrant Violet */
+    --primary: 270 90% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 40 20% 85%;
-    --secondary-foreground: 20 14% 16%;
+    --secondary: 210 40% 94%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 40 20% 85%;
-    --muted-foreground: 20 10% 40%;
+    --muted: 210 40% 94%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 12 76% 61%;
+    /* Vibrant Cyan */
+    --accent: 190 90% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 348 100% 61%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 20 14% 16%; /* Sharp, visible borders */
-    --input: 20 14% 16%;
-    --ring: 12 76% 61%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 270 90% 60%;
 
-    /* Sharp edges for a neo-brutalist feel */
-    --radius: 0rem;
+    /* Very smooth, friendly rounded corners */
+    --radius: 1.25rem;
 
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
 
-    /* Hard, offset shadows instead of soft blur shadows */
-    --shadow-sm: 2px 2px 0px 0px rgba(32,28,26,1);
-    --shadow-md: 4px 4px 0px 0px rgba(32,28,26,1);
-    --shadow-lg: 6px 6px 0px 0px rgba(32,28,26,1);
-    --shadow-xl: 8px 8px 0px 0px rgba(32,28,26,1);
+    /* Soft, colorful floating shadows */
+    --shadow-sm: 0 2px 10px -2px rgba(147, 51, 234, 0.1);
+    --shadow-md: 0 8px 20px -4px rgba(147, 51, 234, 0.15);
+    --shadow-lg: 0 16px 30px -4px rgba(147, 51, 234, 0.2);
+    --shadow-xl: 0 24px 40px -8px rgba(147, 51, 234, 0.25);
 
     /* Sidebar */
-    --sidebar-background: 40 33% 90%;
-    --sidebar-foreground: 20 14% 16%;
-    --sidebar-primary: 12 76% 61%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 270 90% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 40 20% 80%;
-    --sidebar-accent-foreground: 20 14% 16%;
-    --sidebar-border: 20 14% 16%;
-    --sidebar-ring: 12 76% 61%;
+    --sidebar-accent: 210 40% 94%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 270 90% 60%;
   }
 
   .dark {
-    /* Deep Slate/Navy background with off-white text */
-    --background: 220 30% 12%;
-    --foreground: 40 33% 94%;
+    /* DEEP OBSIDIAN & NEON DARK MODE */
+    --background: 230 40% 6%;
+    --foreground: 210 40% 98%;
 
-    --card: 220 30% 15%;
-    --card-foreground: 40 33% 94%;
+    /* Semi-transparent bases for glass effect */
+    --card: 230 40% 10%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 30% 15%;
-    --popover-foreground: 40 33% 94%;
+    --popover: 230 40% 10%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Electric Lime/Chartreuse accent for dark mode */
-    --primary: 75 100% 65%;
-    --primary-foreground: 220 30% 12%;
+    /* Neon Purple */
+    --primary: 270 100% 65%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 20%;
-    --secondary-foreground: 40 33% 94%;
+    --secondary: 230 30% 15%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 20% 20%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 230 30% 15%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 75 100% 65%;
-    --accent-foreground: 220 30% 12%;
+    /* Electric Cyan */
+    --accent: 190 100% 50%;
+    --accent-foreground: 230 40% 6%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 348 100% 61%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 33% 94%; /* Striking light borders in dark mode */
-    --input: 40 33% 94%;
-    --ring: 75 100% 65%;
+    --border: 230 30% 18%;
+    --input: 230 30% 18%;
+    --ring: 270 100% 65%;
 
-    --success: 142 71% 45%;
-    --warning: 38 92% 50%;
+    /* Glowing neon shadows */
+    --shadow-sm: 0 0 15px 0 rgba(168, 85, 247, 0.15);
+    --shadow-md: 0 0 25px 0 rgba(168, 85, 247, 0.2);
+    --shadow-lg: 0 0 35px 0 rgba(168, 85, 247, 0.25);
+    --shadow-xl: 0 0 45px 0 rgba(6, 182, 212, 0.25);
 
-    /* Hard shadows adapted for dark mode */
-    --shadow-sm: 2px 2px 0px 0px rgba(244,240,235,1);
-    --shadow-md: 4px 4px 0px 0px rgba(244,240,235,1);
-    --shadow-lg: 6px 6px 0px 0px rgba(244,240,235,1);
-    --shadow-xl: 8px 8px 0px 0px rgba(244,240,235,1);
-
-    --sidebar-background: 220 30% 10%;
-    --sidebar-foreground: 40 33% 94%;
-    --sidebar-primary: 75 100% 65%;
-    --sidebar-primary-foreground: 220 30% 12%;
-    --sidebar-accent: 220 20% 18%;
-    --sidebar-accent-foreground: 40 33% 94%;
-    --sidebar-border: 40 33% 94%;
-    --sidebar-ring: 75 100% 65%;
+    /* Sidebar */
+    --sidebar-background: 230 40% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 270 100% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 30% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 230 30% 18%;
+    --sidebar-ring: 270 100% 65%;
   }
 }
 
@@ -117,20 +118,29 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Space Grotesk', monospace, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    /* Subtle glowing aurora backdrop */
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(168, 85, 247, 0.08), transparent 30%),
+      radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.08), transparent 30%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Syne', system-ui, sans-serif;
-    text-transform: uppercase;
+    font-family: 'Outfit', system-ui, sans-serif;
     letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .text-gradient {
-    /* Solid, stark highlighting rather than smooth AI-like gradients */
-    @apply bg-accent text-accent-foreground px-1;
+    /* A gorgeous vibrant gradient for main headings */
+    @apply bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent;
+  }
+
+  .glass-card {
+    /* Use this class on any container you want to look super premium */
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-lg dark:border-white/5;
   }
 
   .text-balance {
@@ -138,24 +148,24 @@
   }
 }
 
-/* Scrollbar styling */
+/* Stunning custom scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-background border-l border-border;
+  @apply bg-background border-l border-border/50;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary rounded-none border border-border;
+  @apply bg-primary/80 rounded-full border-2 border-background;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-accent;
+  @apply bg-primary;
 }
 
 ::selection {
-  @apply bg-primary text-primary-foreground;
+  @apply bg-primary/30 text-primary-foreground;
 }
