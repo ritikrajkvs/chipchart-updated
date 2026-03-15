@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gamepad2, Film, Briefcase, Brain, Radio, Laptop, Monitor,
   IndianRupee, MonitorSmartphone, CircleDot, Code, GraduationCap,
-  Zap, ArrowUpCircle, Cpu, MemoryStick, LayoutGrid, Loader2
+  Zap, ArrowUpCircle, Cpu, MemoryStick, LayoutGrid
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { QuestionCard, OptionCard } from '@/components/questionnaire/QuestionCard';
 import { useQuestionnaireStore, DeviceType } from '@/store/questionnaireStore';
+import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -41,7 +42,6 @@ const Questionnaire = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { currentStep, answers, setStep, nextStep, prevStep, setAnswer, complete, reset } = useQuestionnaireStore();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     const type = searchParams.get('type') as DeviceType | null;
@@ -57,13 +57,8 @@ const Questionnaire = () => {
 
   const handleNext = () => {
     if (currentStep === questions.length - 1) {
-      setIsAnalyzing(true);
       complete();
-      
-      // Simulate an analysis delay to show the loading screen before redirecting
-      setTimeout(() => {
-        navigate(answers.deviceType === 'laptop' ? '/results/laptops' : '/results/pc');
-      }, 2500);
+      navigate(answers.deviceType === 'laptop' ? '/results/laptops' : '/results/pc');
     } else {
       nextStep();
     }
@@ -492,67 +487,44 @@ const Questionnaire = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container mx-auto px-4 pt-24 pb-16 min-h-[calc(100vh-80px)] flex flex-col">
-        {isAnalyzing ? (
-          <div className="flex-1 flex items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-6 max-w-md w-full p-8 rounded-2xl bg-card border border-border shadow-lg"
-            >
-              <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-t-2 border-accent animate-spin" />
-                <Loader2 className="h-12 w-12 animate-spin text-accent" />
-              </div>
-              <div className="space-y-3">
-                <h2 className="text-2xl font-bold font-heading">Analyzing your needs</h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Scanning through thousands of components and configurations to find your perfect {answers.deviceType === 'pc' ? 'desktop' : 'laptop'} match...
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        ) : (
-          <>
-            {answers.deviceType && currentStep > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-2xl mx-auto mb-6"
-              >
-                <div className="px-4 py-2.5 rounded-xl bg-secondary border border-border flex items-center gap-3">
-                  {answers.deviceType === 'pc' ? (
-                    <Monitor className="h-4 w-4 text-accent" />
-                  ) : (
-                    <Laptop className="h-4 w-4 text-accent" />
-                  )}
-                  <span className="text-sm">
-                    <span className="font-medium">{answers.deviceType === 'pc' ? 'Desktop PC' : 'Laptop'}</span>
-                    {answers.purpose && <> · <span className="capitalize">{answers.purpose.replace('-', ' ')}</span></>}
-                    {answers.budget && <> · <span className="text-accent font-medium">₹{answers.budget.toLocaleString()}</span></>}
-                  </span>
-                </div>
-              </motion.div>
-            )}
-
-            <AnimatePresence mode="wait">
-              <QuestionCard
-                key={`${answers.deviceType}-${currentStep}`}
-                step={currentStep}
-                totalSteps={questions.length}
-                question={questions[currentStep].question}
-                description={questions[currentStep].description}
-                onNext={handleNext}
-                onPrev={handlePrev}
-                canProgress={canProgress()}
-                isFirst={currentStep === 0}
-                isLast={currentStep === questions.length - 1}
-              >
-                {renderQuestion()}
-              </QuestionCard>
-            </AnimatePresence>
-          </>
+      <main className="container mx-auto px-4 pt-24 pb-16 min-h-screen">
+        {answers.deviceType && currentStep > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-2xl mx-auto mb-6"
+          >
+            <div className="px-4 py-2.5 rounded-xl bg-secondary border border-border flex items-center gap-3">
+              {answers.deviceType === 'pc' ? (
+                <Monitor className="h-4 w-4 text-accent" />
+              ) : (
+                <Laptop className="h-4 w-4 text-accent" />
+              )}
+              <span className="text-sm">
+                <span className="font-medium">{answers.deviceType === 'pc' ? 'Desktop PC' : 'Laptop'}</span>
+                {answers.purpose && <> · <span className="capitalize">{answers.purpose.replace('-', ' ')}</span></>}
+                {answers.budget && <> · <span className="text-accent font-medium">₹{answers.budget.toLocaleString()}</span></>}
+              </span>
+            </div>
+          </motion.div>
         )}
+
+        <AnimatePresence mode="wait">
+          <QuestionCard
+            key={`${answers.deviceType}-${currentStep}`}
+            step={currentStep}
+            totalSteps={questions.length}
+            question={questions[currentStep].question}
+            description={questions[currentStep].description}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            canProgress={canProgress()}
+            isFirst={currentStep === 0}
+            isLast={currentStep === questions.length - 1}
+          >
+            {renderQuestion()}
+          </QuestionCard>
+        </AnimatePresence>
       </main>
       <Footer />
     </div>
