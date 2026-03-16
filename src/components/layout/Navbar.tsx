@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Cpu, Menu, X, ShoppingCart, Monitor, Laptop } from 'lucide-react';
-import { useState } from 'react';
+import { Cpu, Menu, X, ShoppingCart, Monitor, Laptop, Sun, Moon } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useBucketStore } from '@/store/bucketStore';
@@ -22,8 +22,30 @@ export const Navbar = () => {
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/questionnaire', label: 'Get Started' },
+    { href: '/results/laptops', label: 'My Laptops' },
+    { href: '/results/pc', label: 'My PCs' },
   ];
+
+  // Theme toggle logic
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // Check initial global theme
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    setIsDark(isDarkMode);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !isDark;
+    if (nextDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+    setIsDark(nextDark);
+  };
 
   return (
     <>
@@ -61,26 +83,34 @@ export const Navbar = () => {
             ))}
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" asChild onClick={() => handleDeviceNav('pc')}>
-              <Link to="/questionnaire"><Monitor className="h-4 w-4" />PC Build</Link>
+          <div className="hidden md:flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground hover:text-accent transition-colors">
+              {isDark ? <Sun className="h-[1.1rem] w-[1.1rem]" /> : <Moon className="h-[1.1rem] w-[1.1rem]" />}
             </Button>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" asChild onClick={() => handleDeviceNav('laptop')}>
-              <Link to="/questionnaire"><Laptop className="h-4 w-4" />Laptop</Link>
-            </Button>
-            <div className="w-px h-4 bg-border" />
-            <Button variant="ghost" size="icon" onClick={() => useBucketStore.getState().setIsOpen(true)} className="relative">
-              <ShoppingCart className="h-5 w-5" />
+            <div className="w-px h-5 bg-border/50" />
+            <Button variant="ghost" size="icon" onClick={() => useBucketStore.getState().setIsOpen(true)} className="relative text-muted-foreground hover:text-accent transition-colors">
+              <ShoppingCart className="h-[1.1rem] w-[1.1rem]" />
               {useBucketStore((state) => state.items.length) > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-accent" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent animate-pulse" />
               )}
             </Button>
-            <Button variant="accent" size="sm" asChild>
-              <Link to="/questionnaire">Find Your Build</Link>
+            <Button 
+              className="relative overflow-hidden group bg-accent/10 hover:bg-accent/20 text-accent border border-accent/20 transition-all font-semibold"
+              asChild
+            >
+              <Link to="/questionnaire">
+                <span className="relative z-10 flex items-center gap-1.5 text-sm">
+                  <Cpu className="h-4 w-4" /> Start Build
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 group-hover:translate-x-full transition-transform duration-700 ease-in-out -translate-x-full" />
+              </Link>
             </Button>
           </div>
 
           <div className="md:hidden flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground hover:text-foreground">
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => useBucketStore.getState().setIsOpen(true)} className="relative hover:bg-transparent">
               <ShoppingCart className="h-5 w-5" />
                {useBucketStore((state) => state.items.length) > 0 && (
@@ -119,19 +149,11 @@ export const Navbar = () => {
                 {link.label}
               </Link>
             ))}
-            <div className="flex gap-2 pt-1">
-              <Button variant="outline" className="flex-1 gap-1.5" asChild onClick={() => handleDeviceNav('pc')}>
-                <Link to="/questionnaire"><Monitor className="h-4 w-4" />PC Build</Link>
-              </Button>
-              <Button variant="outline" className="flex-1 gap-1.5" asChild onClick={() => handleDeviceNav('laptop')}>
-                <Link to="/questionnaire"><Laptop className="h-4 w-4" />Laptop</Link>
+            <div className="flex gap-2 pt-2 pb-1">
+              <Button variant="outline" className="flex-1 gap-1.5 bg-accent/5 hover:bg-accent/10 border-accent/20 text-accent" asChild onClick={() => { handleDeviceNav('pc'); setIsOpen(false); }}>
+                <Link to="/questionnaire"><Cpu className="h-4 w-4" /> Start Build</Link>
               </Button>
             </div>
-            <Button variant="accent" className="w-full mt-1" asChild>
-              <Link to="/questionnaire" onClick={() => setIsOpen(false)}>
-                Find Your Build
-              </Link>
-            </Button>
           </div>
         </motion.div>
       )}

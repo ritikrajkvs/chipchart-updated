@@ -165,8 +165,9 @@ ${(answers as any)._excludeNames ? `- EXCLUDE these builds: ${(answers as any)._
 Rules:
 - Builds must be: type 1 = performance, type 2 = value, type 3 = prebuilt
 - component "name" field must NOT include the brand name
+- component "sku" MUST be the precise Manufacturer Part Number (MPN) or global product code.
 - All components must be real products available in India
-- Prices must be realistic INR values
+- Prices must be ACCURATE to the CURRENT INDIAN MARKET (MSRP or typical retail price) in INR. Do not use outdated prices.
 - GPU must be appropriate for ${resolution} gaming at the given budget
 - Strictly obey the CPU brand constraint stated above
 
@@ -197,7 +198,9 @@ Return ONLY this JSON array:
 Replace the example above with 3 real builds (performance, value, prebuilt) matching the user requirements. Ensure totalPrice roughly equals sum of component prices and stays within the ${budget} INR budget.
 
 SPECIAL RULES FOR THE "prebuilt" TYPE:
-- Choose a REAL, well-known pre-built gaming PC (e.g., HP Omen, Dell Alienware, Asus ROG, MSI Trident, Lenovo Legion Tower) available on Amazon India.
+- This CANNOT be static. You MUST choose a real pre-built PC available in India that EXACTLY fits the user's Rs.${budget} budget and ${purpose} purpose.
+- Do NOT just default to an HP Omen if it is over/under budget. Pick the BEST prebuilt for Rs.${budget}.
+- STRICT RESTRICTION: The prebuilt MUST be a fully assembled Desktop Tower PC. You are FORBIDDEN from suggesting a Laptop, a barebone Mini-PC, or an empty PC Cabinet/Case. It must be a complete, running desktop system with CPU, GPU, RAM, Motherboard, PSU, and Case included in the prebuilt package.
 - Add these EXTRA fields ONLY on the prebuilt object (not on performance/value builds):
   "prebuiltBrand": "HP",
   "prebuiltModel": "HP Omen 45L GT22",
@@ -293,14 +296,16 @@ PREFERRED GPU tiers for gaming/content (in order of preference):
   2nd: RTX 3060 / 3070 / 3080 (if budget forces)
   3rd: RTX 3050, GTX 1650 (only if truly no better option at the budget)
 
-VALUE RULES:
+VALUE & PRICING RULES:
 - ALWAYS pick the best specs-to-price ratio — not just popular brands
+- Prices must reflect the ACCURATE CURRENT MARKET PRICE in India in 2025. Do not use outdated MSRPs.
 - If a cheaper brand offers equivalent or better specs, pick the cheaper one
 - Every pick must be a real model available in India in 2025
 - Justify in the "pros" why you chose this over alternatives at the same price
 - Do NOT recommend a model that is overpriced relative to its generation
 
 RULES:
+- "model" MUST include the exact Manufacturer Part Number (MPN) in parentheses, e.g. "ROG Zephyrus G14 (GA402XV-N2023WS)" or "IdeaPad Slim 3 (82XQ008VIN)". This is CRITICAL for exact product matching.
 - model field must NOT include brand name
 - storePrices must have realistic prices across stores (within plus/minus 5% of base price)
 - lowestPrice = minimum price across all stores

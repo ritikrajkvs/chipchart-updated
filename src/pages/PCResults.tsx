@@ -12,7 +12,8 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { useQuestionnaireStore } from '@/store/questionnaireStore';
 import {
-  generateAIExplanation,
+  generatePCInsights,
+  AnalysisInsight,
   PCBuild,
 } from '@/lib/recommendationEngine';
 import { fetchGeminiPCBuilds } from '@/lib/geminiApi';
@@ -26,10 +27,24 @@ const categoryIcons: Record<string, typeof Cpu> = {
   PSU: Zap, CASE: Box, MOBO: CircuitBoard, COOLER: Fan,
 };
 
+// Build reliable store URLs — never trust AI-generated URLs
+function buildStoreUrl(store: string, productName: string): string {
+  const q = encodeURIComponent(productName);
+  switch (store) {
+    case 'Amazon':           return `https://www.amazon.in/s?k=${q}`;
+    case 'Flipkart':         return `https://www.flipkart.com/search?q=${q}&otracker=search`;
+    case 'Croma':            return `https://www.croma.com/search/?q=${q}%3Arelevance`;
+    case 'Reliance Digital': return `https://www.reliancedigital.in/search?q=${q}`;
+    case 'MD Computers':     return `https://www.mdcomputers.in/index.php?route=product/search&search=${q}`;
+    case 'PrimeABGB':        return `https://www.primeabgb.com/search/?q=${q}`;
+    default:                 return `https://www.amazon.in/s?k=${q}`;
+  }
+}
+
 const PCResults = () => {
   const { answers, reset } = useQuestionnaireStore();
   const [builds, setBuilds] = useState<PCBuild[]>([]);
-  const [aiExplanation, setAiExplanation] = useState('');
+  const [insights, setInsights] = useState<AnalysisInsight[]>([]);
   const [selectedBuild, setSelectedBuild] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -50,7 +65,7 @@ const PCResults = () => {
       try {
         const recommendations = await fetchGeminiPCBuilds(answers);
         setBuilds(recommendations);
-        setAiExplanation(generateAIExplanation(recommendations, answers));
+        setInsights(generatePCInsights(recommendations, answers));
       } catch (err) {
         console.error("Failed to execute Gemini API", err);
         setError("Failed to generate PC recommendations. Please try again later.");
@@ -89,6 +104,22 @@ const PCResults = () => {
     );
   }
 
+  // Guard: if answers got wiped (e.g. hard refresh before persist loads) send back to questionnaire
+  if (!answers.budget) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <RefreshCw className="h-10 w-10 text-accent mx-auto mb-4" />
+          <h2 className="text-2xl font-bold font-heading">Session Expired</h2>
+          <p className="text-muted-foreground max-w-md">Please complete the questionnaire again to get recommendations.</p>
+          <Button variant="accent" asChild>
+            <Link to="/questionnaire">Start Questionnaire</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Helper to fix LLM occasionally prefixing the name with the brand when we already display the brand
   const formatDisplayName = (brand: string, name: string) => {
     if (!name || !brand) return name;
@@ -107,7 +138,9 @@ const PCResults = () => {
       const existingNames = builds.map(b => b.name).join(', ');
       const answersWithExcludes = { ...answers, _excludeNames: existingNames } as any;
       const newBuilds = await fetchGeminiPCBuilds(answersWithExcludes);
-      setBuilds((prev) => [...prev, ...newBuilds]);
+      const merged = [...builds, ...newBuilds];
+      setBuilds(merged);
+      setInsights(generatePCInsights(merged, answers));
     } catch (err) {
       console.error("Failed to load more builds", err);
     } finally {
@@ -115,7 +148,10 @@ const PCResults = () => {
     }
   };
 
-  const currentBuild = builds[selectedBuild];
+  // Clamp selectedBuild to valid range (important after Load More)
+  const safeBuildIndex = Math.min(selectedBuild, builds.length - 1);
+  const currentBuild = builds[safeBuildIndex];
+  if (!currentBuild) return null;
 
   const getAmazonSearchUrl = (productName: string) => {
     return `https://www.amazon.in/s?k=${encodeURIComponent(productName)}`;
@@ -170,20 +206,50 @@ const PCResults = () => {
           </div>
         </motion.div>
 
-        {/* AI Explanation */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="p-5 rounded-2xl border border-border bg-card mb-8"
-        >
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-accent/10">
-              <Zap className="h-5 w-5 text-accent" />
+        {/* AI Analysis — single card with bullet points, updates on Load More */}
+        {insights.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/5 via-violet-500/5 to-card mb-8 overflow-hidden"
+          >
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 rounded-lg bg-accent/15">
+                  <Zap className="h-4 w-4 text-accent" />
+                </div>
+                <h3 className="font-heading font-semibold text-sm text-accent">AI Analysis</h3>
+                <span className="text-xs text-muted-foreground ml-1">— refreshes as you load more options</span>
+              </div>
+              <ul className="space-y-2.5">
+                {insights.map((ins, i) => {
+                  const dotColors: Record<typeof ins.type, string> = {
+                    winner: 'bg-amber-400',
+                    deal: 'bg-emerald-400',
+                    stat: 'bg-blue-400',
+                    tip: 'bg-violet-400',
+                    warning: 'bg-red-400',
+                  };
+                  const labelColors: Record<typeof ins.type, string> = {
+                    winner: 'text-amber-400',
+                    deal: 'text-emerald-400',
+                    stat: 'text-blue-400',
+                    tip: 'text-violet-400',
+                    warning: 'text-red-400',
+                  };
+                  return (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dotColors[ins.type]}`} />
+                      <div>
+                        <span className={`text-xs font-semibold ${labelColors[ins.type]}`}>{ins.label}: </span>
+                        <span className="text-sm font-medium text-foreground">{ins.value}</span>
+                        {ins.detail && <span className="text-xs text-muted-foreground"> — {ins.detail}</span>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <div>
-              <h3 className="font-heading font-semibold mb-1 text-sm">AI Analysis</h3>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{aiExplanation}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Build Selector */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
@@ -359,7 +425,7 @@ const PCResults = () => {
                       asChild
                     >
                       <a
-                        href={(currentBuild as any).prebuiltBuyLink || `https://www.amazon.in/s?k=${encodeURIComponent(currentBuild.name)}`}
+                        href={buildStoreUrl('Amazon', (currentBuild as any).prebuiltModel || currentBuild.name)}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -392,7 +458,7 @@ const PCResults = () => {
                           {/* Action buttons — visible on hover */}
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <a
-                              href={component.buyLinks?.amazon || getAmazonSearchUrl(`${component.brand} ${formatDisplayName(component.brand, component.name)}`)}
+                              href={buildStoreUrl('Amazon', `${component.brand} ${formatDisplayName(component.brand, component.name)}`)}
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Buy on Amazon"

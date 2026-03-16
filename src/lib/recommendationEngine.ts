@@ -99,28 +99,197 @@ export interface LaptopRecommendation {
   fpsEstimates?: FPSEstimate[];
 }
 
-export function generateAIExplanation(builds: PCBuild[], answers: QuestionnaireAnswers): string {
-  const purpose = answers.purpose || 'gaming';
-  const budget = answers.budget || 100000;
+// ─── Legacy stubs (kept for import compatibility) ─────────────────────────────
+export function generateAIExplanation(_builds: PCBuild[], _answers: QuestionnaireAnswers): string { return ''; }
+export function generateLaptopAIExplanation(_recommendations: LaptopRecommendation[], _answers: QuestionnaireAnswers): string { return ''; }
 
-  if (!builds || builds.length === 0) return '';
-  const bestBuild = builds[0];
-  
-  return `Based on your ${purpose} requirements and ₹${budget.toLocaleString()} budget, I've curated optimized builds for you alongside live market data.
+// ─── Structured insight system ────────────────────────────────────────────────
 
-**${bestBuild.name}** features a ${bestBuild.components.cpu.name} and ${bestBuild.components.gpu.name} combination, delivering exceptional performance. ${bestBuild.bottleneck?.explanation || ''}
-
-Explore the custom builds or a pre-built option to see what best fits your needs. All components are selected based on real-time availability and compatibility.`;
+export interface AnalysisInsight {
+  type: 'winner' | 'tip' | 'stat' | 'warning' | 'deal';
+  label: string;
+  value: string;
+  detail?: string;
 }
 
-export function generateLaptopAIExplanation(recommendations: LaptopRecommendation[], answers: QuestionnaireAnswers): string {
-  const purpose = answers.purpose || 'gaming';
-  if (!recommendations || recommendations.length === 0) return '';
-  const top = recommendations[0];
+// PC build insights — recomputed whenever builds array changes
+export function generatePCInsights(builds: PCBuild[], answers: QuestionnaireAnswers): AnalysisInsight[] {
+  if (!builds || builds.length === 0) return [];
+  const insights: AnalysisInsight[] = [];
+  const budget = answers.budget || 100000;
 
-  return `For your ${purpose} needs, the **${top.laptop.brand} ${top.laptop.model}** emerges as the top recommendation with a ${top.matchScore}% match score based on current market data.
+  const top = [...builds].sort((a, b) => b.performanceScore - a.performanceScore)[0];
+  const valueBuild = [...builds].sort((a, b) => (b.performanceScore / b.totalPrice) - (a.performanceScore / a.totalPrice))[0];
+  const cheapest = [...builds].sort((a, b) => a.totalPrice - b.totalPrice)[0];
 
-Powered by the ${top.laptop.cpu} and ${top.laptop.gpu}, this laptop delivers exceptional performance while its display ensures stunning visuals. At ${top.laptop.weight}, it strikes a great balance.
+  // Best overall
+  insights.push({
+    type: 'winner',
+    label: '🏆 Best Build Overall',
+    value: top.name,
+    detail: `Score ${top.performanceScore}/100 · ${top.components.cpu.name} + ${top.components.gpu.name}`,
+  });
 
-The subsequent options provide alternatives based on live data if you prioritize different features.`;
+  // Best value (if different from top)
+  if (valueBuild.name !== top.name) {
+    insights.push({
+      type: 'deal',
+      label: '💰 Best Value Pick',
+      value: valueBuild.name,
+      detail: `${valueBuild.performanceScore} score for ₹${valueBuild.totalPrice.toLocaleString()} — most performance per rupee`,
+    });
+  }
+
+  // Budget utilisation
+  const savings = budget - cheapest.totalPrice;
+  if (savings > 0) {
+    insights.push({
+      type: 'stat',
+      label: '📊 Budget Fit',
+      value: `₹${cheapest.totalPrice.toLocaleString()} of ₹${budget.toLocaleString()}`,
+      detail: `Save ₹${savings.toLocaleString()} with the most affordable option`,
+    });
+  }
+
+  // Bottleneck warning on best build
+  if (top.bottleneck && top.bottleneck.percentage > 15) {
+    insights.push({
+      type: 'warning',
+      label: '⚠️ Bottleneck Alert',
+      value: `${top.bottleneck.bottleneckComponent} — ${top.bottleneck.percentage}%`,
+      detail: top.bottleneck.explanation,
+    });
+  }
+
+  // Strongest GPU across all builds
+  const gpus = builds.map(b => ({ name: b.components.gpu.name, score: b.components.gpu.performanceScore, build: b.name }));
+  const bestGpu = [...gpus].sort((a, b) => b.score - a.score)[0];
+  insights.push({
+    type: 'stat',
+    label: '🎮 Strongest GPU in Results',
+    value: bestGpu.name,
+    detail: `Found in "${bestGpu.build}" · Score ${bestGpu.score}/100`,
+  });
+
+  // FPS highlight from top build
+  const topFps = top.fpsEstimates?.[0];
+  if (topFps) {
+    insights.push({
+      type: 'tip',
+      label: `🎯 FPS Estimate — ${topFps.game}`,
+      value: `${topFps.fps.high} FPS on High`,
+      detail: `Top build · ${top.components.gpu.name} · ${answers.targetResolution || '1080p'} target`,
+    });
+  }
+
+  // Compatibility status
+  const allCompatible = builds.every(b => b.compatibility?.isCompatible !== false);
+  insights.push({
+    type: allCompatible ? 'tip' : 'warning',
+    label: allCompatible ? '✅ All Builds Compatible' : '⚠️ Compatibility Issue',
+    value: allCompatible ? `${builds.length} builds verified` : 'Check individual build details',
+    detail: allCompatible
+      ? 'CPU socket, RAM type, PSU wattage and GPU slot checked across all results'
+      : 'One or more builds may have compatibility issues — review below',
+  });
+
+  return insights;
+}
+
+// Laptop insights — recomputed whenever recommendations array changes
+export function generateLaptopInsights(recommendations: LaptopRecommendation[], answers: QuestionnaireAnswers): AnalysisInsight[] {
+  if (!recommendations || recommendations.length === 0) return [];
+  const insights: AnalysisInsight[] = [];
+  const budget = answers.budget || 100000;
+
+  const sorted = [...recommendations].sort((a, b) => b.matchScore - a.matchScore);
+  const top = sorted[0];
+  const cheapest = [...recommendations].sort((a, b) =>
+    (a.laptop.lowestPrice ?? a.laptop.price) - (b.laptop.lowestPrice ?? b.laptop.price)
+  )[0];
+  const bestPerf = [...recommendations].sort((a, b) => b.laptop.performanceScore - a.laptop.performanceScore)[0];
+  const cheapestPrice = cheapest.laptop.lowestPrice ?? cheapest.laptop.price;
+
+  // Top match
+  insights.push({
+    type: 'winner',
+    label: '🏆 Best Match For You',
+    value: `${top.laptop.brand} ${top.laptop.model}`,
+    detail: `${top.matchScore}% match · ${top.laptop.cpu} · ${top.laptop.display}`,
+  });
+
+  // Lowest price found
+  insights.push({
+    type: 'deal',
+    label: '💰 Lowest Price Found',
+    value: `₹${cheapestPrice.toLocaleString()} — ${cheapest.laptop.brand} ${cheapest.laptop.model}`,
+    detail: budget - cheapestPrice > 0
+      ? `₹${(budget - cheapestPrice).toLocaleString()} under your budget — great room for accessories`
+      : 'Fits exactly within your budget',
+  });
+
+  // Performance leader (if different from match winner)
+  if (bestPerf.laptop.id !== top.laptop.id) {
+    insights.push({
+      type: 'stat',
+      label: '⚡ Raw Performance Leader',
+      value: `${bestPerf.laptop.brand} ${bestPerf.laptop.model}`,
+      detail: `Score ${bestPerf.laptop.performanceScore}/100 — strongest CPU/GPU combo in these results`,
+    });
+  }
+
+  // Match score spread
+  if (sorted.length > 1) {
+    const gap = sorted[0].matchScore - sorted[sorted.length - 1].matchScore;
+    insights.push({
+      type: 'stat',
+      label: '📊 Match Score Spread',
+      value: `${sorted[0].matchScore}% → ${sorted[sorted.length - 1].matchScore}%`,
+      detail: gap <= 5
+        ? 'Very close results — all options suit your profile well'
+        : `${gap}pt gap — top pick is noticeably better matched to your needs`,
+    });
+  }
+
+  // Store comparison coverage
+  const allStorePrices = recommendations.flatMap(r => r.laptop.storePrices ?? []);
+  if (allStorePrices.length > 0) {
+    const stores = [...new Set(allStorePrices.map(s => s.store))];
+    insights.push({
+      type: 'tip',
+      label: '🛍️ Prices Compared Across',
+      value: `${stores.length} stores`,
+      detail: `${stores.join(' · ')} — tap Deals on each card for live lowest price`,
+    });
+  }
+
+  // Gaming FPS tip
+  const topFps = top.fpsEstimates?.[0];
+  if (topFps) {
+    insights.push({
+      type: 'tip',
+      label: `🎯 Gaming — ${topFps.game}`,
+      value: `~${topFps.fps.high} FPS on High`,
+      detail: `Top pick · High preset. Ultra drops to ~${topFps.fps.ultra} FPS`,
+    });
+  }
+
+  // Lightest laptop
+  const weights = recommendations
+    .map(r => ({
+      label: `${r.laptop.brand} ${r.laptop.model}`,
+      w: parseFloat((r.laptop.weight || '9').replace(/[^0-9.]/g, '')),
+    }))
+    .filter(w => !isNaN(w.w) && w.w > 0);
+  if (weights.length > 1) {
+    const lightest = [...weights].sort((a, b) => a.w - b.w)[0];
+    insights.push({
+      type: 'tip',
+      label: '🪶 Most Portable',
+      value: `${lightest.label} — ${lightest.w} kg`,
+      detail: 'Best choice if you carry your laptop daily',
+    });
+  }
+
+  return insights;
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,8 +32,8 @@ const laptopQuestions = [
   { key: 'displayType', question: 'What kind of display experience do you need?', description: 'Choose based on your primary usage' },
   { key: 'screenSize', question: 'What screen size do you prefer?', description: 'Balancing workspace and physical footprint' },
   { key: 'mobility', question: 'How important is portability and battery life?', description: 'Combine your travel and power needs' },
-  { key: 'buildMaterial', question: "How important is the 'premium' feel?", description: 'Choose between budget-friendly and premium builds' },
-  { key: 'storageSize', question: 'How much storage space do you need?', description: 'Select your storage requirements' },
+  { key: 'buildMaterial', question: 'Do you prefer a plastic or metal laptop?', description: 'Metal feels premium, plastic is generally more affordable' },
+  { key: 'storageSize', question: 'How much storage space do you need?', description: 'Pick based on how many files and heavy apps you plan to save' },
   { key: 'laptopBrandPreference', question: 'Do you have a brand preference?', description: 'Pick your preferred brand or let us recommend the best option' },
 ];
 
@@ -42,15 +42,22 @@ const Questionnaire = () => {
   const [searchParams] = useSearchParams();
   const { currentStep, answers, setStep, nextStep, prevStep, setAnswer, complete, reset } = useQuestionnaireStore();
 
+  const initRef = useRef(false);
+
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     const type = searchParams.get('type') as DeviceType | null;
     if (type === 'laptop' || type === 'pc') {
+      reset();
       setAnswer('deviceType', type);
-      if (currentStep === 0 && answers.deviceType === null) {
-        setStep(1);
-      }
+      setStep(1);
+      navigate('/questionnaire', { replace: true });
+    } else if (answers.deviceType && currentStep === 0) {
+      setStep(1);
     }
-  }, [searchParams]);
+  }, [searchParams, navigate, reset, setAnswer, setStep, answers.deviceType, currentStep]);
 
   const questions = answers.deviceType === 'laptop' ? laptopQuestions : pcQuestions;
 
@@ -355,14 +362,21 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'displayType':
+      case 'displayType': {
+        const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai';
+        const options = isIntensive ? [
+          { value: 'high-hertz', title: 'High Refresh Rate', desc: '144Hz+ for competitive gaming / smooth UI' },
+          { value: 'vibrant-oled', title: 'Color Accurate (OLED/MiniLED)', desc: 'Best for visual fedility & deep blacks' },
+          { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Basic 60Hz display to save budget' },
+        ] : [
+          { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Great for work/study' },
+          { value: 'vibrant-oled', title: 'Vibrant Color (OLED)', desc: 'Best for Movies/Design' },
+          { value: 'high-hertz', title: 'Ultra Smooth (High Hz)', desc: 'Best for smooth scrolling' },
+        ];
+        
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Great for work/study' },
-              { value: 'vibrant-oled', title: 'Vibrant Color (OLED)', desc: 'Best for Movies/Design' },
-              { value: 'high-hertz', title: 'Ultra Smooth (High Hz)', desc: 'Best for Gaming' },
-            ].map((option) => (
+            {options.map((option) => (
               <OptionCard
                 key={option.value}
                 icon={<MonitorSmartphone className="h-5 w-5" />}
@@ -374,6 +388,7 @@ const Questionnaire = () => {
             ))}
           </div>
         );
+      }
 
       case 'screenSize':
         return (
@@ -395,14 +410,23 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'mobility':
+      case 'mobility': {
+        const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai';
+        const options = isIntensive ? [
+          { value: 'stationary', title: 'Desktop Replacement', desc: 'Thick & cool, maximum performance (Always Plugged)' },
+          { value: 'balanced', title: 'Balanced Gaming', desc: 'Standard weight, 3-5 hours on battery' },
+          { value: 'on-the-go', title: 'Thin & Light Gaming', desc: 'Highly portable, but runs hotter' },
+          { value: 'no-preference', title: 'No Preference', desc: 'Just find me the best gaming deal' },
+        ] : [
+          { value: 'stationary', title: 'Stationary', desc: 'Plugged in often' },
+          { value: 'balanced', title: 'Balanced Commute', desc: 'Standard weight/power' },
+          { value: 'on-the-go', title: 'Always On-the-Go', desc: 'Ultra-light, 8+ hrs battery' },
+          { value: 'no-preference', title: 'No Preference', desc: 'Find the best overall deal' },
+        ];
+        
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { value: 'stationary', title: 'Mostly Stationary', desc: 'Plugged in often, weight is not an issue' },
-              { value: 'balanced', title: 'Balanced Commute', desc: 'Standard weight, 4-6 hours of battery' },
-              { value: 'on-the-go', title: 'Always On-the-Go', desc: 'Ultra-lightweight, 8+ hours of battery' },
-            ].map((option) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {options.map((option) => (
               <OptionCard
                 key={option.value}
                 icon={<Zap className="h-5 w-5" />}
@@ -414,23 +438,31 @@ const Questionnaire = () => {
             ))}
           </div>
         );
+      }
 
       case 'buildMaterial':
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-3">
             <OptionCard
               icon={<Briefcase className="h-5 w-5" />}
-              title="Budget Friendly"
-              description="Durable Plastic"
+              title="Standard Plastic"
+              description="More affordable and lightweight"
               selected={answers.buildMaterial === 'budget-plastic'}
               onClick={() => setAnswer('buildMaterial', 'budget-plastic')}
             />
             <OptionCard
               icon={<Briefcase className="h-5 w-5" />}
-              title="Premium Build"
-              description="Sleek Metal/Magnesium"
+              title="Premium Metal"
+              description="Sleek, sturdy, and premium feel"
               selected={answers.buildMaterial === 'premium-metal'}
               onClick={() => setAnswer('buildMaterial', 'premium-metal')}
+            />
+            <OptionCard
+              icon={<CircleDot className="h-5 w-5" />}
+              title="No Preference"
+              description="Whatever gives the best value"
+              selected={answers.buildMaterial === 'no-preference'}
+              onClick={() => setAnswer('buildMaterial', 'no-preference')}
             />
           </div>
         );

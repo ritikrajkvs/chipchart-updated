@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type Purpose = 'gaming' | 'content-creation' | 'office' | 'ml-ai' | 'streaming' | 'coding' | 'student' | 'general';
 export type DeviceType = 'pc' | 'laptop';
@@ -22,8 +23,8 @@ export interface QuestionnaireAnswers {
   displayType?: 'standard-ips' | 'vibrant-oled' | 'high-hertz' | null;
   screenSize?: 'compact' | 'standard' | 'large' | null;
   mobility?: 'stationary' | 'balanced' | 'on-the-go' | null;
-  buildMaterial?: 'budget-plastic' | 'premium-metal' | null;
-  storageSize?: 'basic' | 'ample' | 'massive' | null;
+  buildMaterial?: 'budget-plastic' | 'premium-metal' | 'no-preference' | null;
+  storageSize?: 'basic' | 'ample' | 'massive' | 'no-preference' | null;
   laptopBrandPreference?: string[];
 
   // Legacy/Other (Internal use)
@@ -65,17 +66,27 @@ const initialAnswers: QuestionnaireAnswers = {
   laptopBrandPreference: [],
 };
 
-export const useQuestionnaireStore = create<QuestionnaireState>((set) => ({
-  currentStep: 0,
-  answers: initialAnswers,
-  isComplete: false,
-  setStep: (step) => set({ currentStep: step }),
-  nextStep: () => set((state) => ({ currentStep: state.currentStep + 1 })),
-  prevStep: () => set((state) => ({ currentStep: Math.max(0, state.currentStep - 1) })),
-  setAnswer: (key, value) =>
-    set((state) => ({
-      answers: { ...state.answers, [key]: value },
-    })),
-  reset: () => set({ currentStep: 0, answers: initialAnswers, isComplete: false }),
-  complete: () => set({ isComplete: true }),
-}));
+export const useQuestionnaireStore = create<QuestionnaireState>()(
+  persist(
+    (set) => ({
+      currentStep: 0,
+      answers: initialAnswers,
+      isComplete: false,
+      setStep: (step) => set({ currentStep: step }),
+      nextStep: () => set((state) => ({ currentStep: state.currentStep + 1 })),
+      prevStep: () => set((state) => ({ currentStep: Math.max(0, state.currentStep - 1) })),
+      setAnswer: (key, value) =>
+        set((state) => ({
+          answers: { ...state.answers, [key]: value },
+        })),
+      reset: () => set({ currentStep: 0, answers: initialAnswers, isComplete: false }),
+      complete: () => set({ isComplete: true }),
+    }),
+    {
+      name: 'chipchart-questionnaire',
+      storage: createJSONStorage(() => localStorage),
+      // Only persist answers + isComplete, not currentStep
+      partialize: (state) => ({ answers: state.answers, isComplete: state.isComplete }),
+    }
+  )
+);

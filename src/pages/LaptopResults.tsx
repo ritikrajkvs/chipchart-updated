@@ -11,7 +11,8 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { useQuestionnaireStore } from '@/store/questionnaireStore';
 import {
-  generateLaptopAIExplanation,
+  generateLaptopInsights,
+  AnalysisInsight,
   LaptopRecommendation,
   LaptopStorePrice,
 } from '@/lib/recommendationEngine';
@@ -25,18 +26,38 @@ const STORE_STYLES: Record<string, { color: string; bg: string; border: string }
   'Flipkart':        { color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/30'   },
   'Croma':           { color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/30'  },
   'Reliance Digital':{ color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/30'    },
-  'Vijay Sales':     { color: 'text-purple-400',  bg: 'bg-purple-500/10',  border: 'border-purple-500/30' },
 };
 
 interface DealPanelProps {
   storePrices: LaptopStorePrice[];
   lowestPrice?: number;
   basePrice: number;
+  brand: string;
+  model: string;
+  cpu?: string;
 }
 
-const DealPanel = ({ storePrices, lowestPrice, basePrice }: DealPanelProps) => {
+// Build reliable store search URLs with brand + model + cpu for maximum accuracy
+function buildStoreUrl(store: string, brand: string, model: string, cpu?: string): string {
+  // Strip verbose CPU details — keep just the key part (e.g. "Ryzen 7 7745HX" not full marketing name)
+  const cpuShort = cpu ? cpu.replace(/\(.*?\)/g, '').trim().split(' ').slice(0, 4).join(' ') : '';
+  const query = [brand, model, cpuShort].filter(Boolean).join(' ');
+  const q = encodeURIComponent(query);
+  switch (store) {
+    case 'Amazon':          return `https://www.amazon.in/s?k=${q}&rh=n%3A1375424031`; // laptops category
+    case 'Flipkart':        return `https://www.flipkart.com/search?q=${q}&otracker=search`;
+    case 'Croma':           return `https://www.croma.com/search/?q=${q}%3Arelevance`;
+    case 'Reliance Digital':return `https://www.reliancedigital.in/search?q=${q}`;
+    default:                return `https://www.amazon.in/s?k=${q}&rh=n%3A1375424031`;
+  }
+}
+
+const DealPanel = ({ storePrices, lowestPrice, basePrice, brand, model, cpu }: DealPanelProps) => {
   const cheapest = lowestPrice ?? Math.min(...storePrices.map(s => s.price));
-  const sorted = [...storePrices].sort((a, b) => a.price - b.price);
+  // Filter out Vijay Sales and sort by price
+  const sorted = [...storePrices]
+    .filter(s => s.store !== 'Vijay Sales')
+    .sort((a, b) => a.price - b.price);
 
   return (
     <div className="mt-3 rounded-xl border border-border bg-secondary/30 overflow-hidden">
@@ -56,10 +77,12 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice }: DealPanelProps) => {
         {sorted.map((store) => {
           const style = STORE_STYLES[store.store] ?? STORE_STYLES['Amazon'];
           const isCheapest = store.price === cheapest;
+          // Always build URL ourselves with brand+model+cpu for accuracy
+          const href = buildStoreUrl(store.store, brand, model, cpu);
           return (
             <a
               key={store.store}
-              href={store.url}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
@@ -102,7 +125,7 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice }: DealPanelProps) => {
 const LaptopResults = () => {
   const { answers, reset } = useQuestionnaireStore();
   const [recommendations, setRecommendations] = useState<LaptopRecommendation[]>([]);
-  const [aiExplanation, setAiExplanation] = useState('');
+  const [insights, setInsights] = useState<AnalysisInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +145,7 @@ const LaptopResults = () => {
       try {
         const recs = await fetchGeminiLaptops(answers);
         setRecommendations(recs);
-        setAiExplanation(generateLaptopAIExplanation(recs, answers));
+        setInsights(generateLaptopInsights(recs, answers));
         // Auto-expand deals panel for the top pick
         if (recs[0]) setExpandedDeals(new Set([recs[0].laptop.id]));
       } catch (err) {
@@ -136,11 +159,18 @@ const LaptopResults = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const extractMpn = (name: string) => {
+    const match = name.match(/\(([^)]+)\)/);
+    return match ? match[1].trim() : null;
+  };
+
   const formatDisplayName = (brand: string, name: string) => {
     if (!name || !brand) return name;
+    // Remove MPN in parentheses for clean display
+    let cleanName = name.replace(/\([^)]+\)/g, '').trim();
     const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
-    if (brandRegex.test(name)) return name.replace(brandRegex, '').trim();
-    return name;
+    if (brandRegex.test(cleanName)) return cleanName.replace(brandRegex, '').trim();
+    return cleanName;
   };
 
   const toggleDeals = (id: string) => {
@@ -167,7 +197,9 @@ const LaptopResults = () => {
       const existingModels = recommendations.map(r => r.laptop.model).join(', ');
       const answersWithExcludes = { ...answers, _excludeModels: existingModels } as any;
       const newRecs = await fetchGeminiLaptops(answersWithExcludes);
-      setRecommendations((prev) => [...prev, ...newRecs]);
+      const merged = [...recommendations, ...newRecs];
+      setRecommendations(merged);
+      setInsights(generateLaptopInsights(merged, answers));
     } catch (err) {
       console.error("Failed to load more laptops", err);
     } finally {
@@ -215,6 +247,22 @@ const LaptopResults = () => {
     );
   }
 
+  // Guard: if answers got wiped (e.g. hard refresh before persist loads) send back to questionnaire
+  if (!answers.budget) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <RefreshCw className="h-10 w-10 text-accent mx-auto mb-4" />
+          <h2 className="text-2xl font-bold font-heading">Session Expired</h2>
+          <p className="text-muted-foreground max-w-md">Please complete the questionnaire again to get recommendations.</p>
+          <Button variant="accent" asChild>
+            <Link to="/questionnaire">Start Questionnaire</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -250,25 +298,56 @@ const LaptopResults = () => {
           <span className="text-xs text-muted-foreground self-center ml-1">— compare prices across all stores</span>
         </motion.div>
 
-        {/* AI Explanation */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="p-5 rounded-2xl border border-border bg-card mb-8"
-        >
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-accent/10">
-              <Zap className="h-5 w-5 text-accent" />
+        {/* AI Analysis — single card with bullet points, updates on Load More */}
+        {insights.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/5 via-violet-500/5 to-card mb-8 overflow-hidden"
+          >
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 rounded-lg bg-accent/15">
+                  <Zap className="h-4 w-4 text-accent" />
+                </div>
+                <h3 className="font-heading font-semibold text-sm text-accent">AI Analysis</h3>
+                <span className="text-xs text-muted-foreground ml-1">— refreshes as you load more options</span>
+              </div>
+            <ul className="space-y-2.5">
+              {insights.map((ins, i) => {
+                const dotColors: Record<typeof ins.type, string> = {
+                  winner: 'bg-amber-400',
+                  deal:   'bg-emerald-400',
+                  stat:   'bg-blue-400',
+                  tip:    'bg-violet-400',
+                  warning:'bg-red-400',
+                };
+                const labelColors: Record<typeof ins.type, string> = {
+                  winner: 'text-amber-400',
+                  deal:   'text-emerald-400',
+                  stat:   'text-blue-400',
+                  tip:    'text-violet-400',
+                  warning:'text-red-400',
+                };
+                return (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dotColors[ins.type]}`} />
+                    <div>
+                      <span className={`text-xs font-semibold ${labelColors[ins.type]}`}>{ins.label}: </span>
+                      <span className="text-sm font-medium text-foreground">{ins.value}</span>
+                      {ins.detail && <span className="text-xs text-muted-foreground"> — {ins.detail}</span>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
             </div>
-            <div>
-              <h3 className="font-heading font-semibold text-sm mb-1">AI Analysis</h3>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{aiExplanation}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Laptop Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-10">
           {recommendations.map((rec, index) => {
             const laptop = rec.laptop;
+            const mpn = extractMpn(laptop.model);
             const displayName = formatDisplayName(laptop.brand, laptop.model);
             const hasDeals = laptop.storePrices && laptop.storePrices.length > 0;
             const cheapest = laptop.lowestPrice ?? (hasDeals ? Math.min(...laptop.storePrices!.map(s => s.price)) : laptop.price);
@@ -356,8 +435,8 @@ const LaptopResults = () => {
                         <span className="text-sm text-muted-foreground line-through">₹{laptop.price.toLocaleString()}</span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {hasDeals ? `Best price across ${laptop.storePrices!.filter(s => s.inStock).length} stores` : 'Estimated price'}
+                    <p className="text-xs text-muted-foreground mb-3 font-medium">
+                      {hasDeals ? `Best price across ${laptop.storePrices!.filter(s => s.inStock).length} stores` : 'AI Estimated Price (Verify on store)'}
                     </p>
 
                     {/* Action row */}
@@ -447,6 +526,9 @@ const LaptopResults = () => {
                             storePrices={laptop.storePrices!}
                             lowestPrice={laptop.lowestPrice}
                             basePrice={laptop.price}
+                            brand={laptop.brand}
+                            model={mpn || displayName} // Pass MPN instead of generic model for exact search
+                            cpu={laptop.cpu}
                           />
                         </motion.div>
                       )}
