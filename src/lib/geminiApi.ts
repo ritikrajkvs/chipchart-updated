@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, DynamicRetrievalMode } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { QuestionnaireAnswers } from "@/store/questionnaireStore";
 import { PCBuild, LaptopRecommendation } from "./recommendationEngine";
 
@@ -49,13 +49,8 @@ async function generateWithFallback(prompt: string) {
         model: modelName,
         tools: [
           {
-            googleSearchRetrieval: {
-              dynamicRetrievalConfig: {
-                mode: DynamicRetrievalMode.MODE_DYNAMIC,
-                dynamicThreshold: 0.3,
-              },
-            },
-          },
+            googleSearch: {}
+          } as any,
         ],
         generationConfig: {
           temperature: 0.7,
