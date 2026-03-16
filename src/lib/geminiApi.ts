@@ -242,71 +242,107 @@ export async function fetchGeminiLaptops(
 
   const isGaming = ['gaming', 'streamer', 'content-creator', 'video-editing'].includes(answers.purpose || '');
 
-  const prompt = `
-You are an expert laptop recommender for the Indian market. You help users find the best deals like BuyHatke.
+  const brandConstraint = (() => {
+    const brands = answers.laptopBrandPreference ?? [];
+    const filtered = brands.filter(b => b !== 'no-preference');
+    if (filtered.length === 0) return 'Any brand — pick the absolute best value for the budget.';
+    return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. Do not suggest any other brand.`;
+  })();
 
-Generate 3 laptop recommendations.
+  const screenSizeHint = answers.screenSize === 'compact' ? '13" to 14" screen' : answers.screenSize === 'large' ? '17"+ screen' : '15" to 16" screen';
+  const mobilityHint = answers.mobility === 'on-the-go' ? 'Prioritize lightweight (<1.6kg) and long battery (8+ hours).' : answers.mobility === 'stationary' ? 'Weight & battery life are not critical.' : 'Moderate weight and 5-7h battery are acceptable.';
+  const buildHint = answers.buildMaterial === 'premium-metal' ? 'Aluminum or magnesium chassis is mandatory.' : 'Plastic body is acceptable.';
+  const storageHint = answers.storageSize === 'massive' ? 'Minimum 2TB SSD.' : answers.storageSize === 'ample' ? 'Minimum 1TB SSD.' : '512GB SSD is acceptable.';
+  const displayHint = answers.displayType === 'vibrant-oled' ? 'Prefer OLED display.' : answers.displayType === 'high-hertz' ? 'Prefer 120Hz+ display.' : 'Standard 60Hz IPS is fine.';
 
-${(answers as any)._excludeModels
-      ? `DO NOT recommend these laptops again: ${(answers as any)._excludeModels}`
-      : ""
-    }
+  const prompt = `You are an expert laptop recommender for the Indian market in 2025. Find the BEST VALUE, LATEST GENERATION laptops — like a highly informed friend who knows every deal on the market.
 
-Budget: ${answers.budget || 100000} INR
+Generate exactly 3 laptop recommendations as a JSON array.
 
-User Preferences:
-Display: ${answers.displayType || "Standard IPS"}
-Portability: ${answers.portabilityLevel || "Balanced"}
-Build Quality: ${answers.buildMaterial === 'premium-metal' ? 'Prioritize premium metal/magnesium chassis' : 'Standard build is fine'}
-Battery: ${answers.batteryLife === 'all-day' ? 'Must have 8+ hours of real-world battery life.' : 'Standard battery is acceptable.'}
-Storage: ${answers.storageSize === 'massive' ? 'Must have at least 2TB of storage.' : answers.storageSize === 'ample' ? 'Must have at least 1TB of storage.' : 'Standard 512GB is fine.'}
-Brand: ${answers.laptopBrandPreference && answers.laptopBrandPreference !== 'no-preference' ? `STRICTLY recommend only ${answers.laptopBrandPreference.toUpperCase()} brand laptops.` : 'Any brand is fine.'}
-Purpose: ${answers.purpose || 'general'}
+${(answers as any)._excludeModels ? `DO NOT recommend these models again: ${(answers as any)._excludeModels}` : ''}
+
+USER REQUIREMENTS:
+- Budget: Rs.${answers.budget || 100000} INR (HARD LIMIT — do not exceed)
+- Purpose: ${answers.purpose || 'general'}
+- Screen size: ${screenSizeHint}
+- Display: ${displayHint}
+- Portability: ${mobilityHint}
+- Build: ${buildHint}
+- Storage: ${storageHint}
+- Brand: ${brandConstraint}
+
+GENERATION PREFERENCE (apply intelligently based on budget):
+
+TIER 1 — ALWAYS PREFER these CPUs (latest gen, best value):
+  - AMD: Ryzen 7000 (7xxxH/HS/U), Ryzen 8000 (8xxxH/HS/U), Ryzen AI 300
+  - Intel: 12th Gen, 13th Gen, 14th Gen Core i-series, Intel Core Ultra 100/200
+  - Apple: M2, M3, M4 (any variant)
+
+TIER 2 — USE ONLY IF budget makes Tier 1 unavailable within the limit:
+  - AMD Ryzen 5000 series (5xxxH/U)
+  - Intel 11th Gen (Tiger Lake)
+  - NVIDIA RTX 30-series (RTX 3050, RTX 3060)
+
+TIER 3 — LAST RESORT ONLY if absolutely no Tier 1 or Tier 2 option fits the budget:
+  - Intel 10th Gen, AMD Ryzen 4000, AMD Ryzen 3000
+  - GTX 1650, GTX 1660, RTX 2060
+  - Only use these if no better laptop exists within the Rs.${answers.budget || 100000} hard limit
+
+PREFERRED GPU tiers for gaming/content (in order of preference):
+  1st: NVIDIA RTX 4050 / 4060 / 4070 / 4080 / 4090, AMD RX 7000-series
+  2nd: RTX 3060 / 3070 / 3080 (if budget forces)
+  3rd: RTX 3050, GTX 1650 (only if truly no better option at the budget)
+
+VALUE RULES:
+- ALWAYS pick the best specs-to-price ratio — not just popular brands
+- If a cheaper brand offers equivalent or better specs, pick the cheaper one
+- Every pick must be a real model available in India in 2025
+- Justify in the "pros" why you chose this over alternatives at the same price
+- Do NOT recommend a model that is overpriced relative to its generation
 
 RULES:
 - model field must NOT include brand name
-- All laptops must be real models available in India
-- storePrices must have realistic, slightly varying prices across stores (within ±5% of base price)
+- storePrices must have realistic prices across stores (within plus/minus 5% of base price)
 - lowestPrice = minimum price across all stores
-- buyLinks and storePrices urls must be proper Amazon India / Flipkart / Croma / Reliance Digital search URLs
-${isGaming ? `- Since this is a gaming/performance use case, include a "fpsEstimates" array with 4 popular games (e.g. Valorant, GTA V, Fortnite, Cyberpunk 2077). Each entry: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates in the response.'}
+- Use real Amazon India / Flipkart / Croma / Reliance Digital / Vijay Sales search URLs
+${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
-Return ONLY JSON:
+Return ONLY this JSON array (no markdown, no code blocks):
 
 [
 {
   "laptop": {
     "id": "laptop-1",
-    "model": "ROG Zephyrus G14",
+    "model": "ROG Zephyrus G14 2024",
     "brand": "ASUS",
-    "cpu": "AMD Ryzen 9 7940HS",
+    "cpu": "AMD Ryzen 9 8945HS",
     "gpu": "NVIDIA RTX 4060 8GB",
-    "ram": "16GB DDR5",
-    "storage": "1TB NVMe SSD",
-    "display": "14-inch 2560x1600 165Hz",
+    "ram": "16GB LPDDR5X",
+    "storage": "1TB PCIe 4.0 NVMe SSD",
+    "display": "14-inch 2560x1600 165Hz OLED",
     "battery": "~8 hours",
     "weight": "1.65 kg",
     "performanceScore": 92,
     "price": 119990,
     "lowestPrice": 109990,
     "storePrices": [
-      { "store": "Amazon", "price": 119990, "url": "https://www.amazon.in/s?k=ASUS+ROG+Zephyrus+G14", "inStock": true },
-      { "store": "Flipkart", "price": 109990, "url": "https://www.flipkart.com/search?q=ASUS+ROG+Zephyrus+G14", "inStock": true },
-      { "store": "Croma", "price": 114990, "url": "https://www.croma.com/searchB?q=ASUS+ROG+Zephyrus+G14", "inStock": true },
-      { "store": "Reliance Digital", "price": 116990, "url": "https://www.reliancedigital.in/search?q=ASUS+ROG+Zephyrus+G14", "inStock": false },
-      { "store": "Vijay Sales", "price": 112990, "url": "https://www.vijaysales.com/search?text=ASUS+ROG+Zephyrus+G14", "inStock": true }
+      { "store": "Amazon", "price": 119990, "url": "https://www.amazon.in/s?k=ASUS+ROG+Zephyrus+G14+2024", "inStock": true },
+      { "store": "Flipkart", "price": 109990, "url": "https://www.flipkart.com/search?q=ASUS+ROG+Zephyrus+G14+2024", "inStock": true },
+      { "store": "Croma", "price": 114990, "url": "https://www.croma.com/searchB?q=ASUS+ROG+Zephyrus+G14+2024", "inStock": true },
+      { "store": "Reliance Digital", "price": 116990, "url": "https://www.reliancedigital.in/search?q=ASUS+ROG+Zephyrus+G14+2024", "inStock": false },
+      { "store": "Vijay Sales", "price": 112990, "url": "https://www.vijaysales.com/search?text=ASUS+ROG+Zephyrus+G14+2024", "inStock": true }
     ],
     "buyLinks": {
-      "amazon": "https://www.amazon.in/s?k=ASUS+ROG+Zephyrus+G14",
-      "flipkart": "https://www.flipkart.com/search?q=ASUS+ROG+Zephyrus+G14",
-      "croma": "https://www.croma.com/searchB?q=ASUS+ROG+Zephyrus+G14",
-      "relianceDigital": "https://www.reliancedigital.in/search?q=ASUS+ROG+Zephyrus+G14",
-      "vijaySales": "https://www.vijaysales.com/search?text=ASUS+ROG+Zephyrus+G14"
+      "amazon": "https://www.amazon.in/s?k=ASUS+ROG+Zephyrus+G14+2024",
+      "flipkart": "https://www.flipkart.com/search?q=ASUS+ROG+Zephyrus+G14+2024",
+      "croma": "https://www.croma.com/searchB?q=ASUS+ROG+Zephyrus+G14+2024",
+      "relianceDigital": "https://www.reliancedigital.in/search?q=ASUS+ROG+Zephyrus+G14+2024",
+      "vijaySales": "https://www.vijaysales.com/search?text=ASUS+ROG+Zephyrus+G14+2024"
     }
   },
   "matchScore": 94,
-  "pros": ["Best-in-class performance", "Premium build quality", "Excellent display"],
-  "cons": ["Premium priced", "Gets warm under load"]${isGaming ? `,
+  "pros": ["Latest Ryzen 8000 CPU — no compromises", "OLED display at this price is exceptional value"],
+  "cons": ["Gets warm under sustained GPU load"]${isGaming ? `,
   "fpsEstimates": [
     { "game": "Valorant", "fps": { "low": 300, "medium": 240, "high": 180, "ultra": 120 } },
     { "game": "GTA V", "fps": { "low": 120, "medium": 90, "high": 70, "ultra": 50 } },
@@ -316,7 +352,7 @@ Return ONLY JSON:
 }
 ]
 
-Replace with 3 REAL laptops matching user requirements. Use realistic INR prices. Return ONLY the JSON array.
+Replace this example with 3 REAL, CURRENT (2025) laptops matching the user requirements. Return ONLY the JSON array.
 `;
 
 

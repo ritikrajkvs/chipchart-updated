@@ -10,7 +10,6 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { QuestionCard, OptionCard } from '@/components/questionnaire/QuestionCard';
 import { useQuestionnaireStore, DeviceType } from '@/store/questionnaireStore';
-import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -31,9 +30,9 @@ const laptopQuestions = [
   { key: 'purpose', question: 'What will you primarily use this laptop for?', description: 'Select your main use case' },
   { key: 'budget', question: "What's your budget?", description: 'Enter your maximum budget in ₹ (Indian Rupees)' },
   { key: 'displayType', question: 'What kind of display experience do you need?', description: 'Choose based on your primary usage' },
-  { key: 'portabilityLevel', question: 'How often will you be carrying this laptop?', description: 'Select your portability requirements' },
+  { key: 'screenSize', question: 'What screen size do you prefer?', description: 'Balancing workspace and physical footprint' },
+  { key: 'mobility', question: 'How important is portability and battery life?', description: 'Combine your travel and power needs' },
   { key: 'buildMaterial', question: "How important is the 'premium' feel?", description: 'Choose between budget-friendly and premium builds' },
-  { key: 'batteryLife', question: 'How long do you need it to last away from a plug?', description: 'Select your battery requirements' },
   { key: 'storageSize', question: 'How much storage space do you need?', description: 'Select your storage requirements' },
   { key: 'laptopBrandPreference', question: 'Do you have a brand preference?', description: 'Pick your preferred brand or let us recommend the best option' },
 ];
@@ -88,11 +87,11 @@ const Questionnaire = () => {
       case 'pcVisualStyle': return !!answers.pcVisualStyle;
       // Laptop steps
       case 'displayType': return !!answers.displayType;
-      case 'portabilityLevel': return !!answers.portabilityLevel;
+      case 'screenSize': return !!answers.screenSize;
+      case 'mobility': return !!answers.mobility;
       case 'buildMaterial': return !!answers.buildMaterial;
-      case 'batteryLife': return !!answers.batteryLife;
       case 'storageSize': return !!answers.storageSize;
-      case 'laptopBrandPreference': return !!answers.laptopBrandPreference;
+      case 'laptopBrandPreference': return true; // any selection (or none) is valid
       default: return true;
     }
   };
@@ -376,21 +375,41 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'portabilityLevel':
+      case 'screenSize':
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { value: 'desk-bound', title: 'Mainly Desk-bound', desc: 'Stays at home' },
-              { value: 'daily-commute', title: 'Daily Commute', desc: 'Campus/Office' },
-              { value: 'ultra-portable', title: 'Ultra-Portable', desc: 'Constant travel' },
+              { value: 'compact', title: 'Compact (13" - 14")', desc: 'Easy to carry, fits anywhere' },
+              { value: 'standard', title: 'Standard (15" - 16")', desc: 'Sweet spot for work & play' },
+              { value: 'large', title: 'Large (17"+)', desc: 'Max screen real estate, desktop replacement' },
             ].map((option) => (
               <OptionCard
                 key={option.value}
-                icon={<Laptop className="h-5 w-5" />}
+                icon={<LayoutGrid className="h-5 w-5" />}
                 title={option.title}
                 description={option.desc}
-                selected={answers.portabilityLevel === option.value}
-                onClick={() => setAnswer('portabilityLevel', option.value as any)}
+                selected={answers.screenSize === option.value}
+                onClick={() => setAnswer('screenSize', option.value as any)}
+              />
+            ))}
+          </div>
+        );
+
+      case 'mobility':
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { value: 'stationary', title: 'Mostly Stationary', desc: 'Plugged in often, weight is not an issue' },
+              { value: 'balanced', title: 'Balanced Commute', desc: 'Standard weight, 4-6 hours of battery' },
+              { value: 'on-the-go', title: 'Always On-the-Go', desc: 'Ultra-lightweight, 8+ hours of battery' },
+            ].map((option) => (
+              <OptionCard
+                key={option.value}
+                icon={<Zap className="h-5 w-5" />}
+                title={option.title}
+                description={option.desc}
+                selected={answers.mobility === option.value}
+                onClick={() => setAnswer('mobility', option.value as any)}
               />
             ))}
           </div>
@@ -416,26 +435,6 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'batteryLife':
-        return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { value: 'all-day', title: 'All-day Battery', desc: '8+ hours, efficient' },
-              { value: 'standard', title: 'Standard', desc: '4-6 hours, balanced' },
-              { value: 'plugged-in', title: 'Plugged In', desc: 'Focus on max power' },
-            ].map((option) => (
-              <OptionCard
-                key={option.value}
-                icon={<Zap className="h-5 w-5" />}
-                title={option.title}
-                description={option.desc}
-                selected={answers.batteryLife === option.value}
-                onClick={() => setAnswer('batteryLife', option.value as any)}
-              />
-            ))}
-          </div>
-        );
-
       case 'storageSize':
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -456,28 +455,52 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'laptopBrandPreference':
+      case 'laptopBrandPreference': {
+        const selected = answers.laptopBrandPreference ?? [];
+        const toggleBrand = (value: string) => {
+          if (value === 'no-preference') {
+            // If "No Preference" clicked, clear everything and set only no-preference
+            const next = selected.includes('no-preference') ? [] : ['no-preference'];
+            setAnswer('laptopBrandPreference', next);
+          } else {
+            // Remove no-preference when a specific brand is picked
+            let next = selected.filter((b) => b !== 'no-preference');
+            if (next.includes(value)) {
+              next = next.filter((b) => b !== value);
+            } else {
+              next = [...next, value];
+            }
+            setAnswer('laptopBrandPreference', next);
+          }
+        };
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[
-              { value: 'no-preference', title: 'No Preference', desc: 'Best option for my needs' },
-              { value: 'asus', title: 'ASUS', desc: 'ROG / Vivobook / Zenbook' },
-              { value: 'lenovo', title: 'Lenovo', desc: 'ThinkPad / IdeaPad / Legion' },
-              { value: 'dell', title: 'Dell', desc: 'XPS / Inspiron / Alienware' },
-              { value: 'hp', title: 'HP', desc: 'Pavilion / Envy / Omen' },
-              { value: 'acer', title: 'Acer', desc: 'Swift / Nitro / Predator' },
-            ].map((option) => (
-              <OptionCard
-                key={option.value}
-                icon={<Laptop className="h-5 w-5" />}
-                title={option.title}
-                description={option.desc}
-                selected={answers.laptopBrandPreference === option.value}
-                onClick={() => setAnswer('laptopBrandPreference', option.value as any)}
-              />
-            ))}
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Select one or more brands (or leave blank for best pick)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { value: 'no-preference', title: 'Best Available', desc: 'Pick the top-rated option for me' },
+                { value: 'apple', title: 'Apple', desc: 'MacBook Air / Pro' },
+                { value: 'asus', title: 'ASUS', desc: 'ROG / Vivobook / Zenbook' },
+                { value: 'lenovo', title: 'Lenovo', desc: 'ThinkPad / IdeaPad / Legion' },
+                { value: 'dell', title: 'Dell', desc: 'XPS / Inspiron / Alienware' },
+                { value: 'hp', title: 'HP', desc: 'Pavilion / Envy / Omen' },
+                { value: 'acer', title: 'Acer', desc: 'Swift / Nitro / Predator' },
+                { value: 'msi', title: 'MSI', desc: 'Titan / Stealth / Raider' },
+                { value: 'samsung', title: 'Samsung', desc: 'Galaxy Book Series' },
+              ].map((option) => (
+                <OptionCard
+                  key={option.value}
+                  icon={<Laptop className="h-5 w-5" />}
+                  title={option.title}
+                  description={option.desc}
+                  selected={selected.includes(option.value)}
+                  onClick={() => toggleBrand(option.value)}
+                />
+              ))}
+            </div>
           </div>
         );
+      }
 
       default:
         return null;

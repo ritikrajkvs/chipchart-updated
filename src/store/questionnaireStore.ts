@@ -20,11 +20,11 @@ export interface QuestionnaireAnswers {
 
   // Laptop Specific (Steps 4+)
   displayType?: 'standard-ips' | 'vibrant-oled' | 'high-hertz' | null;
-  portabilityLevel?: 'desk-bound' | 'daily-commute' | 'ultra-portable' | null;
+  screenSize?: 'compact' | 'standard' | 'large' | null;
+  mobility?: 'stationary' | 'balanced' | 'on-the-go' | null;
   buildMaterial?: 'budget-plastic' | 'premium-metal' | null;
-  batteryLife?: 'all-day' | 'standard' | 'plugged-in' | null;
   storageSize?: 'basic' | 'ample' | 'massive' | null;
-  laptopBrandPreference?: 'no-preference' | 'asus' | 'lenovo' | 'dell' | 'hp' | 'apple' | 'acer' | null;
+  laptopBrandPreference?: string[];
 
   // Legacy/Other (Internal use)
   brandPreference: string[];
@@ -58,11 +58,11 @@ const initialAnswers: QuestionnaireAnswers = {
   pcVisualStyle: null,
   // Laptop
   displayType: null,
-  portabilityLevel: null,
+  screenSize: null,
+  mobility: null,
   buildMaterial: null,
-  batteryLife: null,
   storageSize: null,
-  laptopBrandPreference: null,
+  laptopBrandPreference: [],
 };
 
 export const useQuestionnaireStore = create<QuestionnaireState>((set) => ({

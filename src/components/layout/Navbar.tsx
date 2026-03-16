@@ -40,7 +40,7 @@ export const Navbar = () => {
               <Cpu className="h-5 w-5 text-accent-foreground" />
             </div>
             <span className="font-heading text-lg font-bold">
-              ChipChart
+              ChipChart AI
             </span>
           </Link>
 
