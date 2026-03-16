@@ -257,11 +257,11 @@ export async function fetchGeminiLaptops(
     return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. Do not suggest any other brand.`;
   })();
 
-  const screenSizeHint = answers.screenSize === 'compact' ? '13" to 14" screen' : answers.screenSize === 'large' ? '17"+ screen' : '15" to 16" screen';
-  const mobilityHint = answers.mobility === 'on-the-go' ? 'Prioritize lightweight (<1.6kg) and long battery (8+ hours).' : answers.mobility === 'stationary' ? 'Weight & battery life are not critical.' : 'Moderate weight and 5-7h battery are acceptable.';
-  const buildHint = answers.buildMaterial === 'premium-metal' ? 'Aluminum or magnesium chassis is mandatory.' : 'Plastic body is acceptable.';
-  const storageHint = answers.storageSize === 'massive' ? 'Minimum 2TB SSD.' : answers.storageSize === 'ample' ? 'Minimum 1TB SSD.' : '512GB SSD is acceptable.';
-  const displayHint = answers.displayType === 'vibrant-oled' ? 'Prefer OLED display.' : answers.displayType === 'high-hertz' ? 'Prefer 120Hz+ display.' : 'Standard 60Hz IPS is fine.';
+  const screenSizeHint = answers.screenSize === 'compact' ? 'CRITICAL: MUST be 13" or 14" screen (DO NOT suggest 15" or larger).' : answers.screenSize === 'large' ? 'CRITICAL: MUST be 16" or 17"+ screen.' : 'Standard 15" or 16" screen.';
+  const mobilityHint = answers.mobility === 'on-the-go' ? 'CRITICAL: MUST be highly portable, ultra-lightweight (under 1.6kg). DO NOT suggest heavy or bulky laptops (like gaming bricks) if this is selected. MUST have long battery life.' : answers.mobility === 'stationary' ? 'Weight & battery life are not critical. Can be a thick, heavy desktop replacement or high-performance gaming laptop.' : 'Moderate weight (1.7kg - 2.2kg) and average battery.';
+  const buildHint = answers.buildMaterial === 'premium-metal' ? 'MUST have a premium Aluminum or Magnesium chassis. Avoid mostly plastic bodies.' : 'Any build material is acceptable.';
+  const storageHint = answers.storageSize === 'massive' ? 'MUST have at least 2TB SSD.' : answers.storageSize === 'ample' ? 'MUST have at least 1TB SSD.' : 'At least 512GB SSD.';
+  const displayHint = answers.displayType === 'vibrant-oled' ? 'MUST have an OLED display. DO NOT suggest IPS/TN.' : answers.displayType === 'high-hertz' ? 'MUST have a high refresh rate (120Hz+) display.' : answers.displayType === 'touchscreen' ? 'MUST have a Touchscreen display.' : 'Standard display is acceptable.';
 
   const prompt = `You are an expert laptop recommender for the Indian market in 2025. Find the BEST VALUE, LATEST GENERATION laptops — like a highly informed friend who knows every deal on the market.
 
@@ -269,15 +269,16 @@ Generate exactly 3 laptop recommendations as a JSON array.
 
 ${(answers as any)._excludeModels ? `DO NOT recommend these models again: ${(answers as any)._excludeModels}` : ''}
 
-USER REQUIREMENTS:
-- Budget: Rs.${answers.budget || 100000} INR (HARD LIMIT — do not exceed)
-- Purpose: ${answers.purpose || 'general'}
-- Screen size: ${screenSizeHint}
-- Display: ${displayHint}
-- Portability: ${mobilityHint}
-- Build: ${buildHint}
-- Storage: ${storageHint}
-- Brand: ${brandConstraint}
+CRITICAL USER REQUIREMENTS (THESE ARE ABSOLUTE STRICT CONSTRAINTS. YOU MUST FOLLOW ALL 9 STEPS EXACTLY IN THIS PRIORITIZED ORDER):
+Step 1 - Device Type: Laptop
+Step 2 - Primary Purpose: ${answers.purpose?.replace(/-/g, ' ').toUpperCase() || 'GENERAL'} requirements must be fully met.
+Step 3 - Budget Limit: Rs.${answers.budget || 100000} INR (HARD LIMIT — do not exceed under any circumstances).
+Step 4 - Screen Size: ${screenSizeHint}
+Step 5 - Display Quality: ${displayHint}
+Step 6 - Portability & Weight: ${mobilityHint}
+Step 7 - Build Material: ${buildHint}
+Step 8 - Storage Capacity: ${storageHint}
+Step 9 - Brand Preference: ${brandConstraint}
 
 GENERATION PREFERENCE (apply intelligently based on budget):
 
