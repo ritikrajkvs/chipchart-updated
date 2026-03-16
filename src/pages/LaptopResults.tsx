@@ -348,35 +348,6 @@ const LaptopResults = () => {
                     ))}
                   </div>
 
-                  {/* FPS Estimates (inline, only for gaming laptops) */}
-                  {rec.fpsEstimates && rec.fpsEstimates.length > 0 && (
-                    <div className="mb-3 rounded-xl border border-accent/20 bg-accent/5 p-3">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <BarChart3 className="h-3.5 w-3.5 text-accent" />
-                        <span className="text-xs font-bold text-accent">FPS Estimates</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground">High / 1080p</span>
-                      </div>
-                      <div className="space-y-2">
-                        {rec.fpsEstimates.slice(0, 3).map((est) => (
-                          <div key={est.game}>
-                            <div className="flex justify-between text-[11px] mb-1">
-                              <span className="text-muted-foreground">{est.game}</span>
-                              <span className="font-bold text-accent">{est.fps.high} FPS</span>
-                            </div>
-                            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-accent to-violet-500 rounded-full"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(100, (est.fps.high / 300) * 100)}%` }}
-                                transition={{ duration: 0.7, delay: 0.1 }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Price section */}
                   <div className="mt-auto pt-3 border-t border-border">
                     <div className="flex items-baseline gap-2 mb-1">
