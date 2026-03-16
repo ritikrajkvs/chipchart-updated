@@ -416,16 +416,14 @@ const Questionnaire = () => {
           { value: 'stationary', title: 'Desktop Replacement', desc: 'Thick & cool, maximum performance (Always Plugged)' },
           { value: 'balanced', title: 'Balanced Gaming', desc: 'Standard weight, 3-5 hours on battery' },
           { value: 'on-the-go', title: 'Thin & Light Gaming', desc: 'Highly portable, but runs hotter' },
-          { value: 'no-preference', title: 'No Preference', desc: 'Just find me the best gaming deal' },
         ] : [
           { value: 'stationary', title: 'Stationary', desc: 'Plugged in often' },
           { value: 'balanced', title: 'Balanced Commute', desc: 'Standard weight/power' },
           { value: 'on-the-go', title: 'Always On-the-Go', desc: 'Ultra-light, 8+ hrs battery' },
-          { value: 'no-preference', title: 'No Preference', desc: 'Find the best overall deal' },
         ];
         
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {options.map((option) => (
               <OptionCard
                 key={option.value}
@@ -507,7 +505,6 @@ const Questionnaire = () => {
         };
         return (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Select one or more brands (or leave blank for best pick)</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { value: 'no-preference', title: 'Best Available', desc: 'Pick the top-rated option for me' },

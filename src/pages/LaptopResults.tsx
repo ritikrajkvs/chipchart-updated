@@ -578,6 +578,17 @@ const LaptopResults = () => {
                     ))}
                   </tr>
                 ))}
+                {/* AI Review Summary row */}
+                <tr className="bg-accent/5">
+                  <td className="p-3 text-xs font-medium text-accent flex items-center gap-1">
+                    <Brain className="h-3 w-3" /> AI Summary
+                  </td>
+                  {recommendations.map((rec) => (
+                    <td key={rec.laptop.id} className="p-3 text-xs text-muted-foreground leading-relaxed italic border-l border-border/50">
+                      "{rec.pros.slice(0, 2).join(" & ")}"
+                    </td>
+                  ))}
+                </tr>
                 {/* Best price row */}
                 <tr className="bg-emerald-500/5">
                   <td className="p-3 text-xs font-medium text-emerald-400 flex items-center gap-1">

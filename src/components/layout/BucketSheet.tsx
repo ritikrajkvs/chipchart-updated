@@ -90,16 +90,11 @@ export const BucketSheet = () => {
             <div className="w-full space-y-4">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-bold">₹{getTotalPrice().toLocaleString()}</span>
+                <span className="font-bold text-accent">₹{getTotalPrice().toLocaleString()}</span>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={clearBucket} className="flex-1">
-                  Clear
-                </Button>
-                <Button variant="accent" onClick={handleCheckout} className="flex-1 bg-accent hover:bg-accent/90">
-                  <ShoppingCart className="h-4 w-4 mr-2" /> Checkout
-                </Button>
-              </div>
+              <Button variant="outline" onClick={clearBucket} className="w-full text-destructive hover:text-destructive hover:bg-destructive/10">
+                Clear All Items
+              </Button>
             </div>
           </SheetFooter>
         )}
