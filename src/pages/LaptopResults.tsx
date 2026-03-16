@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Monitor, HardDrive, Battery, Scale, Check, X,
   ExternalLink, ArrowLeft, RefreshCw, Zap, Star, ShoppingCart,
-  Plus, TrendingDown, ChevronDown, ChevronUp, Tag, AlertCircle
+  Plus, TrendingDown, ChevronDown, ChevronUp, Tag, AlertCircle, BarChart3
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -107,6 +107,7 @@ const LaptopResults = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedDeals, setExpandedDeals] = useState<Set<string>>(new Set());
+  const [expandedFps, setExpandedFps] = useState<Set<string>>(new Set());
 
   const { addItem } = useBucketStore();
   const hasFetched = useRef(false);
@@ -144,6 +145,15 @@ const LaptopResults = () => {
 
   const toggleDeals = (id: string) => {
     setExpandedDeals(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleFps = (id: string) => {
+    setExpandedFps(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -264,6 +274,7 @@ const LaptopResults = () => {
             const cheapest = laptop.lowestPrice ?? (hasDeals ? Math.min(...laptop.storePrices!.map(s => s.price)) : laptop.price);
             const savings = laptop.price - cheapest;
             const isExpanded = expandedDeals.has(laptop.id);
+            const isFpsOpen = expandedFps.has(laptop.id);
             const isBestMatch = index === 0;
 
             return (
@@ -350,10 +361,24 @@ const LaptopResults = () => {
                     </p>
 
                     {/* Action row */}
-                    <div className="flex gap-2 mb-2">
+                    <div className="flex gap-2 mb-2 relative">
                       <Button variant="accent" size="sm" className="flex-1" onClick={() => handleAddLaptopToBucket(laptop)}>
                         <ShoppingCart className="h-4 w-4 mr-1" /> Add to Bucket
                       </Button>
+                      {rec.fpsEstimates && rec.fpsEstimates.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "gap-1 transition-colors px-2.5",
+                            isFpsOpen && "bg-accent/10 border-accent/40 text-accent"
+                          )}
+                          onClick={() => toggleFps(laptop.id)}
+                          title="FPS Estimates"
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -368,6 +393,45 @@ const LaptopResults = () => {
                         Deals
                         {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </Button>
+
+                      {/* FPS Floating Popup */}
+                      <AnimatePresence>
+                        {isFpsOpen && rec.fpsEstimates && rec.fpsEstimates.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                            transition={{ duration: 0.18 }}
+                            className="absolute bottom-full right-0 mb-2 w-56 z-30 rounded-xl border border-accent/30 bg-card shadow-xl shadow-black/40 p-3"
+                          >
+                            <div className="flex items-center gap-1.5 mb-2.5">
+                              <BarChart3 className="h-3.5 w-3.5 text-accent" />
+                              <span className="text-xs font-bold text-accent">FPS Estimates</span>
+                              <span className="ml-auto text-xs text-muted-foreground">High preset</span>
+                            </div>
+                            <div className="space-y-2">
+                              {rec.fpsEstimates.slice(0, 4).map((est) => (
+                                <div key={est.game}>
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <span className="text-muted-foreground">{est.game}</span>
+                                    <span className="font-semibold text-accent">{est.fps.high} FPS</span>
+                                  </div>
+                                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                                    <motion.div
+                                      className="h-full bg-gradient-to-r from-accent to-violet-500 rounded-full"
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${Math.min(100, (est.fps.high / 300) * 100)}%` }}
+                                      transition={{ duration: 0.6, delay: 0.1 }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Tail arrow */}
+                            <div className="absolute bottom-[-6px] right-5 w-3 h-3 rotate-45 bg-card border-r border-b border-accent/30" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {/* Deal comparison panel */}
