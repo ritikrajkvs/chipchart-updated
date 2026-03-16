@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Monitor, HardDrive, Battery, Scale, Check, X,
   ExternalLink, ArrowLeft, RefreshCw, Zap, Star, ShoppingCart,
-  Plus, TrendingDown, ChevronDown, ChevronUp, Tag, AlertCircle, BarChart3
+  Plus, TrendingDown, ChevronDown, ChevronUp, Tag, AlertCircle, BarChart3, Brain
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -344,7 +344,7 @@ const LaptopResults = () => {
         )}
 
         {/* Laptop Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-10 items-start">
           {recommendations.map((rec, index) => {
             const laptop = rec.laptop;
             const mpn = extractMpn(laptop.model);
