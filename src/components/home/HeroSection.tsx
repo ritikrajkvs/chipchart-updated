@@ -1,61 +1,159 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Monitor, Laptop, ArrowRight } from 'lucide-react';
+import { Monitor, Laptop, ArrowRight, Sparkles, ShieldCheck, Tag } from 'lucide-react';
 
 export const HeroSection = () => {
   return (
-    <section className="pt-32 pb-20">
+    <section className="relative min-h-[calc(100vh-4rem)] flex items-center overflow-hidden pt-20 pb-16">
+      {/* Background Decorations */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-accent/10 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-violet-500/10 blur-[100px]" />
+      </div>
+
       <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="max-w-3xl mx-auto text-center"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-sm font-medium mb-6">
-            Smart recommendations in ₹ INR
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
-          <h1 className="font-heading text-4xl md:text-6xl font-extrabold tracking-tight mb-5 text-balance">
-            Find your perfect
-            <br />
-            <span className="text-gradient">PC or Laptop</span>
-          </h1>
+          {/* LEFT — Hero Text */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            {/* Pill badge */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-accent text-sm font-medium mb-8"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI-powered smart recommendations in ₹ INR
+            </motion.div>
 
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-12">
-            Answer a few questions and get personalized recommendations with
-            compatibility checks, price comparisons, and buy links — all in ₹.
-          </p>
+            <h1 className="font-heading text-5xl md:text-6xl lg:text-[4.5rem] font-extrabold tracking-tight leading-[1.05] mb-6">
+              Find your{' '}
+              <br className="hidden sm:block" />
+              perfect
+              <br />
+              <span className="text-gradient">PC or Laptop</span>
+            </h1>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+            <p className="text-lg text-muted-foreground max-w-xl mb-10 leading-relaxed">
+              Answer a few questions and get personalized recommendations with
+              compatibility checks, price comparisons, and buy links —{' '}
+              <span className="text-foreground font-medium">all in ₹.</span>
+            </p>
+
+            {/* Trust badges */}
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <ShieldCheck className="h-4 w-4 text-accent" />
+                Compatibility guaranteed
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Tag className="h-4 w-4 text-emerald-400" />
+                Best prices across stores
+              </div>
+            </div>
+          </motion.div>
+
+          {/* RIGHT — Selection Cards */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="flex flex-col gap-5"
+          >
+            {/* Desktop PC Card */}
             <Link to="/questionnaire?type=pc">
               <motion.div
-                whileHover={{ y: -2 }}
-                className="group p-6 rounded-2xl border border-border bg-card hover:border-accent/40 hover:shadow-lg transition-all cursor-pointer"
+                whileHover={{ x: 6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="group relative p-7 rounded-2xl border border-border bg-card hover:border-accent/50 hover:shadow-2xl hover:shadow-accent/10 transition-all cursor-pointer overflow-hidden"
               >
-                <Monitor className="h-8 w-8 mb-3 text-muted-foreground group-hover:text-accent transition-colors" />
-                <h3 className="font-heading font-bold text-lg mb-1">Desktop PC</h3>
-                <p className="text-sm text-muted-foreground mb-3">Build or buy a custom desktop</p>
-                <span className="inline-flex items-center text-sm font-medium text-accent gap-1">
-                  Get started <ArrowRight className="h-3.5 w-3.5" />
-                </span>
+                {/* Glow on hover */}
+                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-br from-accent/20 to-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-lg" />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-accent/10 border border-accent/20 group-hover:bg-accent/15 transition-colors">
+                      <Monitor className="h-7 w-7 text-accent" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-heading font-bold text-xl">Desktop PC</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+                          BUILD / BUY
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Custom build or best pre-built picks</p>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-secondary/50 group-hover:bg-accent group-hover:border-accent transition-all duration-300">
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </div>
+
+                {/* Feature chips */}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {['Part-by-part build', 'Compatibility check', 'FPS estimates'].map((f) => (
+                    <span key={f} className="text-[11px] text-muted-foreground bg-secondary/60 px-2.5 py-1 rounded-full border border-border/60">
+                      {f}
+                    </span>
+                  ))}
+                </div>
               </motion.div>
             </Link>
+
+            {/* Laptop Card */}
             <Link to="/questionnaire?type=laptop">
               <motion.div
-                whileHover={{ y: -2 }}
-                className="group p-6 rounded-2xl border border-border bg-card hover:border-accent/40 hover:shadow-lg transition-all cursor-pointer"
+                whileHover={{ x: 6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="group relative p-7 rounded-2xl border border-border bg-card hover:border-violet-400/50 hover:shadow-2xl hover:shadow-violet-500/10 transition-all cursor-pointer overflow-hidden"
               >
-                <Laptop className="h-8 w-8 mb-3 text-muted-foreground group-hover:text-accent transition-colors" />
-                <h3 className="font-heading font-bold text-lg mb-1">Laptop</h3>
-                <p className="text-sm text-muted-foreground mb-3">Find the best laptop for you</p>
-                <span className="inline-flex items-center text-sm font-medium text-accent gap-1">
-                  Get started <ArrowRight className="h-3.5 w-3.5" />
-                </span>
+                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-lg" />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20 group-hover:bg-violet-500/15 transition-colors">
+                      <Laptop className="h-7 w-7 text-violet-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-heading font-bold text-xl">Laptop</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                          FIND BEST
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Top picks matched to your needs</p>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-secondary/50 group-hover:bg-violet-500 group-hover:border-violet-500 transition-all duration-300">
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {['Gaming laptops', 'Work & study', 'Price comparison'].map((f) => (
+                    <span key={f} className="text-[11px] text-muted-foreground bg-secondary/60 px-2.5 py-1 rounded-full border border-border/60">
+                      {f}
+                    </span>
+                  ))}
+                </div>
               </motion.div>
             </Link>
-          </div>
-        </motion.div>
+
+            {/* Small info note */}
+            <p className="text-center text-xs text-muted-foreground/60 mt-1">
+              ✦ Usually takes less than 2 minutes to complete
+            </p>
+          </motion.div>
+
+        </div>
       </div>
     </section>
   );
