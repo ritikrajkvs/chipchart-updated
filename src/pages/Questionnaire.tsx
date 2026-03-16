@@ -366,12 +366,12 @@ const Questionnaire = () => {
         const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai';
         const options = isIntensive ? [
           { value: 'high-hertz', title: 'High Refresh Rate', desc: '144Hz+ for competitive gaming / smooth UI' },
-          { value: 'vibrant-oled', title: 'Color Accurate (OLED/MiniLED)', desc: 'Best for visual fedility & deep blacks' },
+          { value: 'vibrant-oled', title: 'Color Accurate (OLED)', desc: 'Best for visual fidelity & deep blacks' },
           { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Basic 60Hz display to save budget' },
         ] : [
-          { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Great for work/study' },
-          { value: 'vibrant-oled', title: 'Vibrant Color (OLED)', desc: 'Best for Movies/Design' },
-          { value: 'high-hertz', title: 'Ultra Smooth (High Hz)', desc: 'Best for smooth scrolling' },
+          { value: 'standard-ips', title: 'Standard Anti-Glare', desc: 'Great for reading & office work' },
+          { value: 'vibrant-oled', title: 'Vibrant Display (OLED)', desc: 'Best for movies & multimedia' },
+          { value: 'touchscreen', title: 'Touchscreen / 2-in-1', desc: 'Best for drawing & note-taking' },
         ];
         
         return (

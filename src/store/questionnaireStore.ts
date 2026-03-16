@@ -20,7 +20,7 @@ export interface QuestionnaireAnswers {
   pcVisualStyle?: 'stealth' | 'white' | 'rgb' | null;
 
   // Laptop Specific (Steps 4+)
-  displayType?: 'standard-ips' | 'vibrant-oled' | 'high-hertz' | null;
+  displayType?: 'standard-ips' | 'vibrant-oled' | 'high-hertz' | 'touchscreen' | null;
   screenSize?: 'compact' | 'standard' | 'large' | null;
   mobility?: 'stationary' | 'balanced' | 'on-the-go' | null;
   buildMaterial?: 'budget-plastic' | 'premium-metal' | 'no-preference' | null;
