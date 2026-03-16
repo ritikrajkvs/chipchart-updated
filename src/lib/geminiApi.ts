@@ -240,6 +240,8 @@ export async function fetchGeminiLaptops(
     throw new Error("Gemini API key missing");
   }
 
+  const isGaming = ['gaming', 'streamer', 'content-creator', 'video-editing'].includes(answers.purpose || '');
+
   const prompt = `
 You are an expert laptop recommender for the Indian market. You help users find the best deals like BuyHatke.
 
@@ -267,6 +269,7 @@ RULES:
 - storePrices must have realistic, slightly varying prices across stores (within ±5% of base price)
 - lowestPrice = minimum price across all stores
 - buyLinks and storePrices urls must be proper Amazon India / Flipkart / Croma / Reliance Digital search URLs
+${isGaming ? `- Since this is a gaming/performance use case, include a "fpsEstimates" array with 4 popular games (e.g. Valorant, GTA V, Fortnite, Cyberpunk 2077). Each entry: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates in the response.'}
 
 Return ONLY JSON:
 
@@ -303,7 +306,13 @@ Return ONLY JSON:
   },
   "matchScore": 94,
   "pros": ["Best-in-class performance", "Premium build quality", "Excellent display"],
-  "cons": ["Premium priced", "Gets warm under load"]
+  "cons": ["Premium priced", "Gets warm under load"]${isGaming ? `,
+  "fpsEstimates": [
+    { "game": "Valorant", "fps": { "low": 300, "medium": 240, "high": 180, "ultra": 120 } },
+    { "game": "GTA V", "fps": { "low": 120, "medium": 90, "high": 70, "ultra": 50 } },
+    { "game": "Fortnite", "fps": { "low": 200, "medium": 150, "high": 100, "ultra": 70 } },
+    { "game": "Cyberpunk 2077", "fps": { "low": 80, "medium": 60, "high": 45, "ultra": 30 } }
+  ]` : ''}
 }
 ]
 

@@ -96,6 +96,7 @@ export interface LaptopRecommendation {
   matchScore: number;
   pros: string[];
   cons: string[];
+  fpsEstimates?: FPSEstimate[];
 }
 
 export function generateAIExplanation(builds: PCBuild[], answers: QuestionnaireAnswers): string {
