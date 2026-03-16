@@ -22,7 +22,7 @@ const FALLBACK_MODELS = [
   "gemini-2.5-flash-lite",          // 🥈 20 RPD — untouched, fast
   "gemini-2.0-flash",               // 🥉 untouched daily quota
   "gemini-2.0-flash-lite",          //    untouched daily quota
-  "gemini-2.0-flash-exp",          //    untouched daily quota
+  // "gemini-2.0-flash-exp",        //    (Removed, returning 404)
   "gemini-flash-latest",            //    alias — varies
   // ------ NEARLY EXHAUSTED ------
   "gemini-3-flash-preview",         // ⚠️  18/20 RPD used (~2 left)
@@ -115,7 +115,10 @@ function extractJSON(text: string) {
     throw new Error("Invalid JSON returned from Gemini");
   }
 
-  return text.slice(start, end + 1);
+  let jsonStr = text.slice(start, end + 1);
+  // Fix common JSON errors: remove trailing commas
+  jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
+  return jsonStr;
 }
 
 /*
@@ -257,7 +260,7 @@ export async function fetchGeminiLaptops(
     return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. Do not suggest any other brand.`;
   })();
 
-  const screenSizeHint = answers.screenSize === 'compact' ? 'CRITICAL: MUST be 13" or 14" screen (DO NOT suggest 15" or larger).' : answers.screenSize === 'large' ? 'CRITICAL: MUST be 16" or 17"+ screen.' : 'Standard 15" or 16" screen.';
+  const screenSizeHint = answers.screenSize === 'compact' ? 'CRITICAL: MUST be 13-inch or 14-inch screen (DO NOT suggest 15-inch or larger).' : answers.screenSize === 'large' ? 'CRITICAL: MUST be 16-inch or 17-inch+ screen.' : 'Standard 15-inch or 16-inch screen.';
   const mobilityHint = answers.mobility === 'on-the-go' ? 'CRITICAL: MUST be highly portable, ultra-lightweight (under 1.6kg). DO NOT suggest heavy or bulky laptops (like gaming bricks) if this is selected. MUST have long battery life.' : answers.mobility === 'stationary' ? 'Weight & battery life are not critical. Can be a thick, heavy desktop replacement or high-performance gaming laptop.' : 'Moderate weight (1.7kg - 2.2kg) and average battery.';
   const buildHint = answers.buildMaterial === 'premium-metal' ? 'MUST have a premium Aluminum or Magnesium chassis. Avoid mostly plastic bodies.' : 'Any build material is acceptable.';
   const storageHint = answers.storageSize === 'massive' ? 'MUST have at least 2TB SSD.' : answers.storageSize === 'ample' ? 'MUST have at least 1TB SSD.' : 'At least 512GB SSD.';
@@ -318,6 +321,8 @@ RULES:
 - storePrices must have realistic prices across stores (within plus/minus 5% of base price)
 - lowestPrice = minimum price across all stores
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
+
+CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") inside string values. For example, use "15-inch display", NEVER "15" display".
 
 Return ONLY this JSON array (no markdown, no code blocks):
 
