@@ -29,6 +29,7 @@ export interface Laptop {
   id: string;
   model: string;
   brand: string;
+  searchQuery: string;
   cpu: string;
   gpu: string;
   ram: string;

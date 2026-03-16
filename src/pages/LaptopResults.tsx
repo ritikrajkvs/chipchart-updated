@@ -32,17 +32,12 @@ interface DealPanelProps {
   storePrices: LaptopStorePrice[];
   lowestPrice?: number;
   basePrice: number;
-  brand: string;
-  model: string;
-  cpu?: string;
+  storeSearchQuery: string;
 }
 
-// Build reliable store search URLs with brand + model + cpu for maximum accuracy
-function buildStoreUrl(store: string, brand: string, model: string, cpu?: string): string {
-  // Strip verbose CPU details — keep just the key part (e.g. "Ryzen 7 7745HX" not full marketing name)
-  const cpuShort = cpu ? cpu.replace(/\(.*?\)/g, '').trim().split(' ').slice(0, 4).join(' ') : '';
-  const query = [brand, model, cpuShort].filter(Boolean).join(' ');
-  const q = encodeURIComponent(query);
+// Build reliable store search URLs with the AI generated optimal query
+function buildStoreUrl(store: string, searchQuery: string): string {
+  const q = encodeURIComponent(searchQuery || '');
   switch (store) {
     case 'Amazon':          return `https://www.amazon.in/s?k=${q}&rh=n%3A1375424031`; // laptops category
     case 'Flipkart':        return `https://www.flipkart.com/search?q=${q}&otracker=search`;
@@ -52,7 +47,7 @@ function buildStoreUrl(store: string, brand: string, model: string, cpu?: string
   }
 }
 
-const DealPanel = ({ storePrices, lowestPrice, basePrice, brand, model, cpu }: DealPanelProps) => {
+const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: DealPanelProps) => {
   const cheapest = lowestPrice ?? Math.min(...storePrices.map(s => s.price));
   // Filter out Vijay Sales and sort by price
   const sorted = [...storePrices]
@@ -77,8 +72,8 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, brand, model, cpu }: D
         {sorted.map((store) => {
           const style = STORE_STYLES[store.store] ?? STORE_STYLES['Amazon'];
           const isCheapest = store.price === cheapest;
-          // Always build URL ourselves with brand+model+cpu for accuracy
-          const href = buildStoreUrl(store.store, brand, model, cpu);
+          // Use the optimized search query to guarantee results
+          const href = buildStoreUrl(store.store, storeSearchQuery);
           return (
             <a
               key={store.store}
@@ -526,9 +521,7 @@ const LaptopResults = () => {
                             storePrices={laptop.storePrices!}
                             lowestPrice={laptop.lowestPrice}
                             basePrice={laptop.price}
-                            brand={laptop.brand}
-                            model={mpn || displayName} // Pass MPN instead of generic model for exact search
-                            cpu={laptop.cpu}
+                            storeSearchQuery={laptop.searchQuery || `${laptop.brand} ${displayName} ${laptop.cpu}`}
                           />
                         </motion.div>
                       )}

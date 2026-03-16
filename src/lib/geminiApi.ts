@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, DynamicRetrievalMode } from "@google/generative-ai";
 import { QuestionnaireAnswers } from "@/store/questionnaireStore";
 import { PCBuild, LaptopRecommendation } from "./recommendationEngine";
 
@@ -47,6 +47,16 @@ async function generateWithFallback(prompt: string) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
+        tools: [
+          {
+            googleSearchRetrieval: {
+              dynamicRetrievalConfig: {
+                mode: DynamicRetrievalMode.MODE_DYNAMIC,
+                dynamicThreshold: 0.3,
+              },
+            },
+          },
+        ],
         generationConfig: {
           temperature: 0.7,
           topP: 0.9,
@@ -305,11 +315,12 @@ VALUE & PRICING RULES:
 - Do NOT recommend a model that is overpriced relative to its generation
 
 RULES:
-- "model" MUST include the exact Manufacturer Part Number (MPN) in parentheses, e.g. "ROG Zephyrus G14 (GA402XV-N2023WS)" or "IdeaPad Slim 3 (82XQ008VIN)". This is CRITICAL for exact product matching.
-- model field must NOT include brand name
+- "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
+- "searchQuery" MUST be an optimized search string combining Brand, Model, CPU, and GPU (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060"). This ensures the user finds exact specs when searching Amazon.
+- Use your Google Search capabilities to verify the laptop is actually available in India right now at the quoted price.
+- Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
 - storePrices must have realistic prices across stores (within plus/minus 5% of base price)
 - lowestPrice = minimum price across all stores
-- Use real Amazon India / Flipkart / Croma / Reliance Digital / Vijay Sales search URLs
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 Return ONLY this JSON array (no markdown, no code blocks):
@@ -320,6 +331,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "id": "laptop-1",
     "model": "ROG Zephyrus G14 2024",
     "brand": "ASUS",
+    "searchQuery": "ASUS ROG Zephyrus G14 2024 Ryzen 9 RTX 4060",
     "cpu": "AMD Ryzen 9 8945HS",
     "gpu": "NVIDIA RTX 4060 8GB",
     "ram": "16GB LPDDR5X",
@@ -331,19 +343,12 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "price": 119990,
     "lowestPrice": 109990,
     "storePrices": [
-      { "store": "Amazon", "price": 119990, "url": "https://www.amazon.in/s?k=ASUS+ROG+Zephyrus+G14+2024", "inStock": true },
-      { "store": "Flipkart", "price": 109990, "url": "https://www.flipkart.com/search?q=ASUS+ROG+Zephyrus+G14+2024", "inStock": true },
-      { "store": "Croma", "price": 114990, "url": "https://www.croma.com/searchB?q=ASUS+ROG+Zephyrus+G14+2024", "inStock": true },
-      { "store": "Reliance Digital", "price": 116990, "url": "https://www.reliancedigital.in/search?q=ASUS+ROG+Zephyrus+G14+2024", "inStock": false },
-      { "store": "Vijay Sales", "price": 112990, "url": "https://www.vijaysales.com/search?text=ASUS+ROG+Zephyrus+G14+2024", "inStock": true }
-    ],
-    "buyLinks": {
-      "amazon": "https://www.amazon.in/s?k=ASUS+ROG+Zephyrus+G14+2024",
-      "flipkart": "https://www.flipkart.com/search?q=ASUS+ROG+Zephyrus+G14+2024",
-      "croma": "https://www.croma.com/searchB?q=ASUS+ROG+Zephyrus+G14+2024",
-      "relianceDigital": "https://www.reliancedigital.in/search?q=ASUS+ROG+Zephyrus+G14+2024",
-      "vijaySales": "https://www.vijaysales.com/search?text=ASUS+ROG+Zephyrus+G14+2024"
-    }
+      { "store": "Amazon", "price": 119990, "inStock": true },
+      { "store": "Flipkart", "price": 109990, "inStock": true },
+      { "store": "Croma", "price": 114990, "inStock": true },
+      { "store": "Reliance Digital", "price": 116990, "inStock": false },
+      { "store": "Vijay Sales", "price": 112990, "inStock": true }
+    ]
   },
   "matchScore": 94,
   "pros": ["Latest Ryzen 8000 CPU — no compromises", "OLED display at this price is exceptional value"],
