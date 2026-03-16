@@ -316,7 +316,7 @@ VALUE & PRICING RULES:
 
 RULES:
 - "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
-- "searchQuery" MUST be an optimized search string combining Brand, Model, CPU, and GPU (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060"). This ensures the user finds exact specs when searching Amazon.
+- "searchQuery" MUST be an optimized search string combining ONLY the full name of the laptop, processor, graphics card, and RAM (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 16GB"). Do NOT include the specific model number or MPN in the searchQuery.
 - Use your Google Search capabilities to verify the laptop is actually available in India right now at the quoted price.
 - Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
 - storePrices must have realistic prices across stores (within plus/minus 5% of base price)
@@ -331,7 +331,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "id": "laptop-1",
     "model": "ROG Zephyrus G14 2024",
     "brand": "ASUS",
-    "searchQuery": "ASUS ROG Zephyrus G14 2024 Ryzen 9 RTX 4060",
+    "searchQuery": "ASUS ROG Zephyrus G14 2024 Ryzen 9 RTX 4060 16GB",
     "cpu": "AMD Ryzen 9 8945HS",
     "gpu": "NVIDIA RTX 4060 8GB",
     "ram": "16GB LPDDR5X",
