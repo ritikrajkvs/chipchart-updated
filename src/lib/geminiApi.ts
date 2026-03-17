@@ -142,7 +142,7 @@ function extractJSON(text: string) {
 
   for (let i = start; i < text.length; i++) {
     const char = text[i];
-    
+
     if (isEscaping) {
       isEscaping = false;
       continue;
@@ -155,7 +155,7 @@ function extractJSON(text: string) {
       inString = !inString;
       continue;
     }
-    
+
     if (!inString) {
       if (char === '[') depth++;
       else if (char === ']') {
