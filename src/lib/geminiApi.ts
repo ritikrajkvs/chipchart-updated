@@ -120,17 +120,64 @@ Safe JSON extraction from AI output
 */
 
 function extractJSON(text: string) {
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
+  // Try to find a markdown JSON block first
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    let jsonStr = codeBlockMatch[1].trim();
+    // Fix common formatting errors: trailing commas
+    return jsonStr.replace(/,\s*([\]}])/g, '$1');
+  }
 
-  if (start === -1 || end === -1) {
-    throw new Error("Invalid JSON returned from Gemini");
+  const start = text.indexOf("[");
+  if (start === -1) {
+    console.error("Gemini Output Error - No JSON start bracket:", text);
+    throw new Error("No JSON array returned by the AI.");
+  }
+
+  // Count brackets to find the exact end of the JSON array, ignoring [1] citations safely
+  let depth = 0;
+  let end = -1;
+  let inString = false;
+  let isEscaping = false;
+
+  for (let i = start; i < text.length; i++) {
+    const char = text[i];
+    
+    if (isEscaping) {
+      isEscaping = false;
+      continue;
+    }
+    if (char === '\\') {
+      isEscaping = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '[') depth++;
+      else if (char === ']') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+  }
+
+  // Fallback to last bracket if parsing failed
+  if (end === -1) end = text.lastIndexOf("]");
+
+  if (start === -1 || end === -1 || start >= end) {
+    console.error("Gemini Output Error - Bad boundaries:", text);
+    throw new Error("Invalid JSON array boundaries returned from Gemini.");
   }
 
   let jsonStr = text.slice(start, end + 1);
-  // Fix common JSON errors: remove trailing commas
-  jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
-  return jsonStr;
+  return jsonStr.replace(/,\s*([\]}])/g, '$1'); // Fix trailing commas
 }
 
 /*
