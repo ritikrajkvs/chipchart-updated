@@ -18,14 +18,14 @@ Robust Model Fallback Wrapper
 
 const FALLBACK_MODELS = [
   // ------ HIGHEST RPD FIRST ------
-  "gemini-3.1-flash-lite-preview",  // 🥇 500 RPD — best daily budget
+  "gemini-3.1-flash-lite",  // 🥇 500 RPD — best daily budget
   "gemini-2.5-flash-lite",          // 🥈 20 RPD — untouched, fast
   "gemini-2.0-flash",               // 🥉 untouched daily quota
   "gemini-2.0-flash-lite",          //    untouched daily quota
   // "gemini-2.0-flash-exp",        //    (Removed, returning 404)
   "gemini-flash-latest",            //    alias — varies
   // ------ NEARLY EXHAUSTED ------
-  "gemini-3-flash-preview",         // ⚠️  18/20 RPD used (~2 left)
+  "gemini-3-flash",         // ⚠️  18/20 RPD used (~2 left)
   // ------ EXCEEDED — last resort --
   "gemini-2.5-flash",               // 🔴 21/20 RPD exceeded
 ];
