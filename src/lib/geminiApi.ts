@@ -34,9 +34,9 @@ const FALLBACK_MODELS = [
 function getRetryDelay(err: any): number {
   try {
     const match = err.message?.match(/retryDelay["\s:]+(\d+)s/);
-    if (match) return parseInt(match[1]) * 1000 + 500; // Add 500ms buffer
+    if (match) return parseInt(match[1]) * 1000 + 1000; // Add 1s buffer
   } catch { };
-  return 2000; // Default 2s fallback delay
+  return 5000; // Default 5s fallback delay (critical for 15 RPM limits)
 }
 
 async function generateWithFallback(prompt: string) {
@@ -87,7 +87,7 @@ async function generateWithFallback(prompt: string) {
             break; // Move to the next model
           }
           const baseDelay = getRetryDelay(err);
-          // Exponential backoff: 2s, 4s, 8s...
+          // Exponential backoff: 5s, 10s, 20s... (gives RPM limit time to reset)
           const exponentialDelay = baseDelay * Math.pow(2, retries - 1);
           console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${exponentialDelay}ms before retry ${retries}/${maxRetriesPerModel}...`);
           await new Promise(r => setTimeout(r, exponentialDelay));
@@ -237,6 +237,7 @@ Rules:
 - Prices must be ACCURATE to the CURRENT INDIAN MARKET (MSRP or typical retail price) in INR. Do not use outdated prices.
 - GPU must be appropriate for ${resolution} gaming at the given budget
 - Strictly obey the CPU brand constraint stated above
+- CRITICAL JSON ESCAPING: Do NOT use raw double quotes (") inside any string values. For example, use '15-inch', NEVER '15"'. An unescaped quote will crash the JSON parser.
 
 Return ONLY this JSON array:
 [
@@ -381,7 +382,7 @@ RULES:
 - lowestPrice = maximum price across all stores (to simulate the highest expected retail cost)
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
-CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") inside string values. For example, use "15-inch display", NEVER "15" display".
+CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.
 
 Return ONLY this JSON array (no markdown, no code blocks):
 
