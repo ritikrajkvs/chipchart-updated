@@ -35,7 +35,7 @@ function getRetryDelay(err: any): number {
   try {
     const match = err.message?.match(/retryDelay["\s:]+(\d+)s/);
     if (match) return parseInt(match[1]) * 1000 + 500; // Add 500ms buffer
-  } catch {};
+  } catch { };
   return 2000; // Default 2s fallback delay
 }
 
@@ -44,54 +44,66 @@ async function generateWithFallback(prompt: string) {
 
   for (let i = 0; i < FALLBACK_MODELS.length; i++) {
     const modelName = FALLBACK_MODELS[i];
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        tools: [
-          {
-            googleSearch: {}
-          } as any,
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.9,
-          maxOutputTokens: 8192
+    let retries = 0;
+    const maxRetriesPerModel = 3;
+
+    while (retries < maxRetriesPerModel) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          tools: [
+            {
+              googleSearch: {}
+            } as any,
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.9,
+            maxOutputTokens: 8192
+          }
+        });
+
+        const result = await model.generateContent(prompt);
+        console.log(`[Gemini API] Success with model: ${modelName} after ${retries} retries`);
+        return result;
+
+      } catch (err: any) {
+        lastError = err;
+
+        const is429 = err.message?.includes("429") || err.message?.includes("Too Many Requests");
+        const isDailyLimit = err.message?.includes("Quota exceeded") || err.message?.includes("PerDay") || err.message?.includes("daily");
+
+        // If the model hit a daily limit (limit: 0), skip it immediately — no point waiting
+        if (is429 && isDailyLimit) {
+          console.warn(`[Gemini API] ${modelName} hit DAILY quota. Skipping to next model.`);
+          break; // Break the while loop to move to the next model in the for loop
         }
-      });
-      
-      const result = await model.generateContent(prompt);
-      console.log(`[Gemini API] Success with model: ${modelName}`);
-      return result;
 
-    } catch (err: any) {
-      console.warn(`[Gemini API] Failed with ${modelName}:`, err.message?.substring(0, 120));
-      lastError = err;
-      
-      const is429 = err.message?.includes("429");
-      const isDailyLimit = err.message?.includes("PerDay");
+        // If it's a per-minute limit (RPM), wait and retry the SAME model
+        if (is429) {
+          retries++;
+          if (retries >= maxRetriesPerModel) {
+            console.warn(`[Gemini API] ${modelName} RPM rate limit exhausted after ${retries} retries. Skipping to next model.`);
+            break; // Move to the next model
+          }
+          const baseDelay = getRetryDelay(err);
+          // Exponential backoff: 2s, 4s, 8s...
+          const exponentialDelay = baseDelay * Math.pow(2, retries - 1);
+          console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${exponentialDelay}ms before retry ${retries}/${maxRetriesPerModel}...`);
+          await new Promise(r => setTimeout(r, exponentialDelay));
+          continue; // Retry the same model
+        }
 
-      // If the model hit a daily limit (limit: 0), skip it immediately — no point waiting
-      if (is429 && isDailyLimit) {
-        console.warn(`[Gemini API] ${modelName} hit daily quota. Skipping to next model.`);
-        continue;
-      }
-
-      // If it's a per-minute limit, wait the suggested delay before retrying with next model
-      if (is429) {
-        const delay = getRetryDelay(err);
-        console.warn(`[Gemini API] Rate limited. Waiting ${delay}ms before trying next model...`);
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-
-      // For non-quota errors (404, 500, etc.) try the next model after a short delay
-      if (i < FALLBACK_MODELS.length - 1) {
-        await new Promise(r => setTimeout(r, 1000));
-        continue;
+        // For non-quota errors (404, 500, etc.) try the next model after a short delay
+        console.warn(`[Gemini API] Failed with ${modelName}:`, err.message?.substring(0, 120));
+        if (i < FALLBACK_MODELS.length - 1) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        break; // Break the retry loop to move to the next model
       }
     }
   }
-  
+
   // All models exhausted
   const is429 = (lastError as any)?.message?.includes("429");
   if (is429) {
@@ -138,24 +150,24 @@ export async function fetchGeminiPCBuilds(
   const budget = answers.budget || 100000;
   const resolution = answers.targetResolution || '1080p';
   const cpuBrand = answers.cpuBrandPreference === 'intel'
-    ? 'STRICTLY use Intel CPUs (Core i5/i7/i9 series only)'
+    ? 'STRICTLY use Intel CPUs (Core i3/i5/i7/i9 series only)'
     : answers.cpuBrandPreference === 'amd'
-    ? 'STRICTLY use AMD CPUs (Ryzen 5/7/9 series only)'
-    : 'Choose the best CPU brand (Intel or AMD) for performance and value';
+      ? 'STRICTLY use AMD CPUs (Ryzen 3/5/7/9 series only)'
+      : 'Choose the best CPU brand (Intel or AMD) for performance and value';
   const upgradability = answers.upgradabilityPriority === 'future-proof'
     ? 'Use a high-quality upgradeable platform: Z-series (Intel) or X570/B650E (AMD) motherboard, DDR5, PCIe 5.0'
     : answers.upgradabilityPriority === 'budget-tight'
-    ? 'Maximise raw performance, do not overspend on the motherboard or extras'
-    : 'Balanced mid-range motherboard (B760/B650) with some future headroom';
+      ? 'Maximise raw performance, do not overspend on the motherboard or extras'
+      : 'Balanced mid-range motherboard (B760/B650) with some future headroom';
   const ram = answers.ramRequirement === '32gb-plus' ? '32 GB minimum RAM'
     : answers.ramRequirement === '8gb' ? '8 GB RAM'
-    : '16 GB RAM';
+      : '16 GB RAM';
   const formFactor = answers.pcFormFactor === 'compact' ? 'Mini-ITX form factor (small build)'
     : answers.pcFormFactor === 'full-tower' ? 'Full-Tower E-ATX (workstation-class)'
-    : 'Mid-Tower ATX (standard, most common)';
+      : 'Mid-Tower ATX (standard, most common)';
   const style = answers.pcVisualStyle === 'rgb' ? 'RGB case with tempered glass panel'
     : answers.pcVisualStyle === 'white' ? 'White/clean aesthetic case'
-    : 'Stealth/Minimal all-black case';
+      : 'Stealth/Minimal all-black case';
 
   const prompt = `You are an expert PC builder in India. Generate exactly 3 PC build recommendations as a JSON array. Do not include any text before or after the JSON array.
 
@@ -287,16 +299,16 @@ GENERATION PREFERENCE (apply intelligently based on budget):
 
 TIER 1 — ALWAYS PREFER these CPUs (latest gen, best value):
   - AMD: Ryzen 7000 (7xxxH/HS/U), Ryzen 8000 (8xxxH/HS/U), Ryzen AI 300
-  - Intel: 12th Gen, 13th Gen, 14th Gen Core i-series, Intel Core Ultra 100/200
+  - Intel: 12th Gen, 13th Gen, 14th Gen Core i-series (including i3, i5, i7, i9), Intel Core Ultra 100/200
   - Apple: M2, M3, M4 (any variant)
 
 TIER 2 — USE ONLY IF budget makes Tier 1 unavailable within the limit:
-  - AMD Ryzen 5000 series (5xxxH/U)
-  - Intel 11th Gen (Tiger Lake)
+  - AMD Ryzen 5000 series (5xxxH/U/Ryzen 3/5/7)
+  - Intel 11th Gen (Tiger Lake Core i3/i5/i7)
   - NVIDIA RTX 30-series (RTX 3050, RTX 3060)
 
 TIER 3 — LAST RESORT ONLY if absolutely no Tier 1 or Tier 2 option fits the budget:
-  - Intel 10th Gen, AMD Ryzen 4000, AMD Ryzen 3000
+  - Intel 10th Gen, AMD Ryzen 4000, AMD Ryzen 3000 (Including Ryzen 3 / Intel i3)
   - GTX 1650, GTX 1660, RTX 2060
   - Only use these if no better laptop exists within the Rs.${answers.budget || 100000} hard limit
 
