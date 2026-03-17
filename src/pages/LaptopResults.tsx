@@ -19,6 +19,7 @@ import {
 import { fetchGeminiLaptops } from '@/lib/geminiApi';
 import { useBucketStore } from '@/store/bucketStore';
 import { cn } from '@/lib/utils';
+import { apiCache } from '@/lib/apiCache';
 
 // Store brand colors / logos (text fallback)
 const STORE_STYLES: Record<string, { color: string; bg: string; border: string }> = {
@@ -144,10 +145,25 @@ const LaptopResults = () => {
       setLoading(true);
       setError(null);
       try {
+        // 1. Check if we already fetched these exact answers recently
+        const cachedRecs = apiCache.get(answers);
+        if (cachedRecs) {
+          console.log("Serving from cache, saved 1 API call!");
+          setRecommendations(cachedRecs);
+          setInsights(generateLaptopInsights(cachedRecs, answers));
+          if (cachedRecs[0]) setExpandedDeals(new Set([cachedRecs[0].laptop.id]));
+          setLoading(false);
+          return;
+        }
+
+        // 2. If not in cache, call Gemini
         const recs = await fetchGeminiLaptops(answers);
+        
+        // 3. Save the result to the cache for the next page reload
+        apiCache.set(answers, recs);
+        
         setRecommendations(recs);
         setInsights(generateLaptopInsights(recs, answers));
-        // Auto-expand deals panel for the top pick
         if (recs[0]) setExpandedDeals(new Set([recs[0].laptop.id]));
       } catch (err) {
         console.error("Failed to execute Gemini API", err);
@@ -198,7 +214,12 @@ const LaptopResults = () => {
       const existingModels = recommendations.map(r => r.laptop.model).join(', ');
       const answersWithExcludes = { ...answers, _excludeModels: existingModels } as any;
       const newRecs = await fetchGeminiLaptops(answersWithExcludes);
+      
       const merged = [...recommendations, ...newRecs];
+      
+      // Update cache with the new merged list!
+      apiCache.set(answers, merged);
+      
       setRecommendations(merged);
       setInsights(generateLaptopInsights(merged, answers));
     } catch (err) {

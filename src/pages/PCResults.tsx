@@ -19,6 +19,7 @@ import {
 import { fetchGeminiPCBuilds } from '@/lib/geminiApi';
 import { useBucketStore, BucketItemType } from '@/store/bucketStore';
 import { cn } from '@/lib/utils';
+import { apiCache } from '@/lib/apiCache';
 
 
 
@@ -63,7 +64,22 @@ const PCResults = () => {
       setLoading(true);
       setError(null);
       try {
+        // 1. Check if we already fetched these exact answers recently
+        const cachedRecs = apiCache.get(answers);
+        if (cachedRecs) {
+          console.log("Serving from cache, saved 1 API call!");
+          setBuilds(cachedRecs);
+          setInsights(generatePCInsights(cachedRecs, answers));
+          setLoading(false);
+          return;
+        }
+
+        // 2. If not in cache, call Gemini
         const recommendations = await fetchGeminiPCBuilds(answers);
+        
+        // 3. Save the result to the cache for the next page reload
+        apiCache.set(answers, recommendations);
+
         setBuilds(recommendations);
         setInsights(generatePCInsights(recommendations, answers));
       } catch (err) {
@@ -138,7 +154,12 @@ const PCResults = () => {
       const existingNames = builds.map(b => b.name).join(', ');
       const answersWithExcludes = { ...answers, _excludeNames: existingNames } as any;
       const newBuilds = await fetchGeminiPCBuilds(answersWithExcludes);
+      
       const merged = [...builds, ...newBuilds];
+      
+      // Update cache with the new merged list!
+      apiCache.set(answers, merged);
+      
       setBuilds(merged);
       setInsights(generatePCInsights(merged, answers));
     } catch (err) {

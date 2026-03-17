@@ -16,8 +16,9 @@ Robust Model Fallback Wrapper
 -------------------------------------
 */
 
-const FALLBACK_MODELS = [
-  "gemini-3.1-flash-lite-preview",  // 🥇 500 RPD — ONLY USE THIS MODEL
+const FALLBACK_MODELS = [         
+  "gemini-3.1-flash-lite-preview",  
+               
 ];
 
 // Extract suggested retry delay (in ms) from the API error message
@@ -47,9 +48,10 @@ async function generateWithFallback(prompt: string) {
             } as any,
           ],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.2, // Low temperature = high stability, no hallucinations
             topP: 0.9,
-            maxOutputTokens: 8192
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json" // CRITICAL: Forces perfect JSON structure
           }
         });
 
