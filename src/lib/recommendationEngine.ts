@@ -206,10 +206,10 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
   const sorted = [...recommendations].sort((a, b) => b.matchScore - a.matchScore);
   const top = sorted[0];
   const cheapest = [...recommendations].sort((a, b) =>
-    (a.laptop.lowestPrice ?? a.laptop.price) - (b.laptop.lowestPrice ?? b.laptop.price)
+    (b.laptop.lowestPrice ?? b.laptop.price) - (a.laptop.lowestPrice ?? a.laptop.price)
   )[0];
   const bestPerf = [...recommendations].sort((a, b) => b.laptop.performanceScore - a.laptop.performanceScore)[0];
-  const cheapestPrice = cheapest.laptop.lowestPrice ?? cheapest.laptop.price;
+  const targetPrice = cheapest.laptop.lowestPrice ?? cheapest.laptop.price;
 
   // Top match
   insights.push({
@@ -219,13 +219,13 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
     detail: `${top.matchScore}% match · ${top.laptop.cpu} · ${top.laptop.display}`,
   });
 
-  // Lowest price found
+  // Estimated max price
   insights.push({
     type: 'deal',
-    label: '💰 Lowest Price Found',
-    value: `₹${cheapestPrice.toLocaleString()} — ${cheapest.laptop.brand} ${cheapest.laptop.model}`,
-    detail: budget - cheapestPrice > 0
-      ? `₹${(budget - cheapestPrice).toLocaleString()} under your budget — great room for accessories`
+    label: '💰 Expected Max Cost',
+    value: `₹${targetPrice.toLocaleString()} — ${cheapest.laptop.brand} ${cheapest.laptop.model}`,
+    detail: budget - targetPrice > 0
+      ? `₹${(budget - targetPrice).toLocaleString()} under your budget based on max retail price`
       : 'Fits exactly within your budget',
   });
 

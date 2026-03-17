@@ -331,7 +331,7 @@ RULES:
 - Use your Google Search capabilities to verify the laptop is actually available in India right now at the quoted price.
 - Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
 - storePrices must have realistic prices across stores (within plus/minus 5% of base price)
-- lowestPrice = minimum price across all stores
+- lowestPrice = maximum price across all stores (to simulate the highest expected retail cost)
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") inside string values. For example, use "15-inch display", NEVER "15" display".
@@ -354,7 +354,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "weight": "1.65 kg",
     "performanceScore": 92,
     "price": 119990,
-    "lowestPrice": 109990,
+    "lowestPrice": 119990,
     "storePrices": [
       { "store": "Amazon", "price": 119990, "inStock": true },
       { "store": "Flipkart", "price": 109990, "inStock": true },
