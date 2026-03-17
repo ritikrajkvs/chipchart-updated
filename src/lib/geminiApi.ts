@@ -34,9 +34,9 @@ const FALLBACK_MODELS = [
 function getRetryDelay(err: any): number {
   try {
     const match = err.message?.match(/retryDelay["\s:]+(\d+)s/);
-    if (match) return parseInt(match[1]) * 1000 + 1000; // Add 1s buffer
+    if (match) return parseInt(match[1]) * 1000 + 1000;
   } catch { };
-  return 5000; // Default 5s fallback delay (critical for 15 RPM limits)
+  return 5000;
 }
 
 async function generateWithFallback(prompt: string) {
@@ -86,11 +86,11 @@ async function generateWithFallback(prompt: string) {
             console.warn(`[Gemini API] ${modelName} RPM rate limit exhausted after ${retries} retries. Skipping to next model.`);
             break; // Move to the next model
           }
-          const baseDelay = getRetryDelay(err);
-          // Exponential backoff: 5s, 10s, 20s... (gives RPM limit time to reset)
-          const exponentialDelay = baseDelay * Math.pow(2, retries - 1);
-          console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${exponentialDelay}ms before retry ${retries}/${maxRetriesPerModel}...`);
-          await new Promise(r => setTimeout(r, exponentialDelay));
+          // Backoff: 5s, 15s, 60s (60s guarantees the 1-minute RPM quota resets)
+          const delays = [5000, 15000, 60000];
+          const delay = delays[retries - 1] || 60000;
+          console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${delay}ms before retry ${retries}/${maxRetriesPerModel}...`);
+          await new Promise(r => setTimeout(r, delay));
           continue; // Retry the same model
         }
 
@@ -378,9 +378,9 @@ RULES:
 - "searchQuery" MUST be an optimized search string combining ONLY the full name of the laptop, processor, graphics card, and RAM (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 16GB"). Do NOT include the specific model number or MPN in the searchQuery.
 - Use your Google Search capabilities to find the EXACT CURRENT price on Amazon/Flipkart. Do not hallucinate prices.
 - Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
-- storePrices must be realistically simulated or fetched reflecting current active deals.
+- storePrices MUST ONLY include exactly two stores: "Amazon" and "Flipkart". Do not include any other stores.
 - price = the standard MRP or average current price
-- lowestPrice = the HIGHEST real-time price found across stores right now (to simulate the maximum Expected Retail Cost for the user budget).
+- lowestPrice = the HIGHEST real-time price found across Amazon and Flipkart right now (to simulate the maximum Expected Retail Cost for the user budget).
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.
