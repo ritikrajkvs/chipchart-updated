@@ -367,19 +367,20 @@ PREFERRED GPU tiers for gaming/content (in order of preference):
 
 VALUE & PRICING RULES:
 - ALWAYS pick the best specs-to-price ratio — not just popular brands
-- Prices must reflect the ACCURATE CURRENT MARKET PRICE in India in 2025. Do not use outdated MSRPs.
+- REAL-TIME PRICING IS MANDATORY: You MUST use your Google Search tool to find the exact CURRENT price of the laptop on Amazon India or Flipkart today. Do NOT rely on training data.
 - If a cheaper brand offers equivalent or better specs, pick the cheaper one
-- Every pick must be a real model available in India in 2025
+- Every pick must be a real model available in India right now
 - Justify in the "pros" why you chose this over alternatives at the same price
 - Do NOT recommend a model that is overpriced relative to its generation
 
 RULES:
 - "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
 - "searchQuery" MUST be an optimized search string combining ONLY the full name of the laptop, processor, graphics card, and RAM (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 16GB"). Do NOT include the specific model number or MPN in the searchQuery.
-- Use your Google Search capabilities to verify the laptop is actually available in India right now at the quoted price.
+- Use your Google Search capabilities to find the EXACT CURRENT price on Amazon/Flipkart. Do not hallucinate prices.
 - Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
-- storePrices must have realistic prices across stores (within plus/minus 5% of base price)
-- lowestPrice = maximum price across all stores (to simulate the highest expected retail cost)
+- storePrices must be realistically simulated or fetched reflecting current active deals.
+- price = the standard MRP or average current price
+- lowestPrice = the HIGHEST real-time price found across stores right now (to simulate the maximum Expected Retail Cost for the user budget).
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.
