@@ -49,22 +49,28 @@ function buildStoreUrl(store: string, searchQuery: string): string {
 
 const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: DealPanelProps) => {
   const targetPrice = lowestPrice ?? Math.max(...storePrices.map(s => s.price));
-  // Filter out Vijay Sales and sort by price descending
+  
+  // Prioritize Amazon and Flipkart, then sort the rest by price
   const sorted = [...storePrices]
     .filter(s => s.store !== 'Vijay Sales')
-    .sort((a, b) => b.price - a.price);
+    .sort((a, b) => {
+      const aPRIO = a.store === 'Amazon' || a.store === 'Flipkart' ? 1 : 0;
+      const bPRIO = b.store === 'Amazon' || b.store === 'Flipkart' ? 1 : 0;
+      if (aPRIO !== bPRIO) return bPRIO - aPRIO; // Higher priority first
+      return b.price - a.price;
+    });
 
   return (
     <div className="mt-3 rounded-xl border border-border bg-secondary/30 overflow-hidden">
       <div className="px-3 py-2 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <TrendingDown className="h-3.5 w-3.5 text-amber-400" />
-          <span className="text-xs font-semibold text-amber-400">Max Retail Price</span>
-          <span className="text-xs font-bold text-amber-300">₹{targetPrice.toLocaleString()}</span>
+          <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />
+          <span className="text-xs font-semibold text-emerald-400">Best Deal</span>
+          <span className="text-xs font-bold text-emerald-300">₹{targetPrice.toLocaleString()}</span>
         </div>
         {targetPrice < basePrice && (
-          <span className="text-xs bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5 font-semibold">
-            Under budget by ₹{(basePrice - targetPrice).toLocaleString()}
+          <span className="text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5 font-semibold">
+            Save ₹{(basePrice - targetPrice).toLocaleString()}
           </span>
         )}
       </div>
@@ -99,11 +105,11 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: De
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className={cn('text-sm font-bold', isTarget ? 'text-amber-400' : '')}>
+                <span className={cn('text-sm font-bold', isTarget ? 'text-emerald-400' : '')}>
                   ₹{store.price.toLocaleString()}
                 </span>
                 {isTarget && (
-                  <span className="text-xs bg-amber-500/20 text-amber-400 rounded px-1 py-0.5 font-semibold">Highest</span>
+                  <span className="text-xs bg-emerald-500/20 text-emerald-400 rounded px-1 py-0.5 font-semibold">Lowest</span>
                 )}
                 {store.inStock && (
                   <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -425,10 +431,13 @@ const LaptopResults = () => {
                   {/* Price section */}
                   <div className="mt-auto pt-3 border-t border-border">
                     <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-xl font-extrabold text-amber-400">₹{targetPrice.toLocaleString()}</span>
+                      <span className="text-xl font-extrabold text-emerald-400">₹{targetPrice.toLocaleString()}</span>
+                      {savings > 0 && (
+                        <span className="text-sm text-muted-foreground line-through">₹{laptop.price.toLocaleString()}</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mb-3 font-medium">
-                      {hasDeals ? `Max retail price from ${laptop.storePrices!.filter(s => s.inStock).length} stores` : 'AI Estimated Top Price'}
+                      {hasDeals ? `Best price across ${laptop.storePrices!.filter(s => s.inStock).length} stores` : 'AI Estimated Price (Verify on store)'}
                     </p>
 
                     {/* Action row */}
@@ -580,9 +589,9 @@ const LaptopResults = () => {
                   ))}
                 </tr>
                 {/* Best price row */}
-                <tr className="bg-amber-500/5">
-                  <td className="p-3 text-xs font-medium text-amber-400 flex items-center gap-1">
-                    <TrendingDown className="h-3 w-3" /> Retail Price
+                <tr className="bg-emerald-500/5">
+                  <td className="p-3 text-xs font-medium text-emerald-400 flex items-center gap-1">
+                    <TrendingDown className="h-3 w-3" /> Best Price
                   </td>
                   {recommendations.map((rec) => {
                     const targetPrice = rec.laptop.lowestPrice ??
@@ -590,7 +599,7 @@ const LaptopResults = () => {
                     const targetStore = rec.laptop.storePrices?.find(s => s.price === targetPrice);
                     return (
                       <td key={rec.laptop.id} className="p-3">
-                        <p className="text-sm font-bold text-amber-400">₹{targetPrice.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-emerald-400">₹{targetPrice.toLocaleString()}</p>
                         {targetStore && (
                           <p className="text-xs text-muted-foreground mt-0.5">{targetStore.store}</p>
                         )}
