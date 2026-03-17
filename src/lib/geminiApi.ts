@@ -17,17 +17,7 @@ Robust Model Fallback Wrapper
 */
 
 const FALLBACK_MODELS = [
-  // ------ HIGHEST RPD FIRST ------
-  "gemini-3.1-flash-lite-preview",  // 🥇 500 RPD — best daily budget
-  "gemini-2.5-flash-lite",          // 🥈 20 RPD — untouched, fast
-  "gemini-2.0-flash",               // 🥉 untouched daily quota
-  "gemini-2.0-flash-lite",          //    untouched daily quota
-  // "gemini-2.0-flash-exp",        //    (Removed, returning 404)
-  "gemini-flash-latest",            //    alias — varies
-  // ------ NEARLY EXHAUSTED ------
-  "gemini-3-flash-preview",         // ⚠️  18/20 RPD used (~2 left)
-  // ------ EXCEEDED — last resort --
-  "gemini-2.5-flash",               // 🔴 21/20 RPD exceeded
+  "gemini-3.1-flash-lite-preview",  // 🥇 500 RPD — ONLY USE THIS MODEL
 ];
 
 // Extract suggested retry delay (in ms) from the API error message
@@ -45,7 +35,7 @@ async function generateWithFallback(prompt: string) {
   for (let i = 0; i < FALLBACK_MODELS.length; i++) {
     const modelName = FALLBACK_MODELS[i];
     let retries = 0;
-    const maxRetriesPerModel = 3;
+    const maxRetriesPerModel = 5;
 
     while (retries < maxRetriesPerModel) {
       try {
@@ -86,8 +76,8 @@ async function generateWithFallback(prompt: string) {
             console.warn(`[Gemini API] ${modelName} RPM rate limit exhausted after ${retries} retries. Skipping to next model.`);
             break; // Move to the next model
           }
-          // Backoff: 5s, 15s, 60s (60s guarantees the 1-minute RPM quota resets)
-          const delays = [5000, 15000, 60000];
+          // Backoff: 5s, 15s, 30s, 60s, 60s
+          const delays = [5000, 15000, 30000, 60000, 60000];
           const delay = delays[retries - 1] || 60000;
           console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${delay}ms before retry ${retries}/${maxRetriesPerModel}...`);
           await new Promise(r => setTimeout(r, delay));
