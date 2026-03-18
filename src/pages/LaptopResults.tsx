@@ -165,6 +165,17 @@ const LaptopResults = () => {
             if (liveData && liveData.price) {
               rec.laptop.lowestPrice = liveData.price;
               rec.laptop.storePrices = [{ store: 'Amazon', price: liveData.price, inStock: liveData.inStock, url: liveData.url }];
+              // If substitute: overwrite card specs with real Amazon product info
+              if (liveData.isSubstitute && liveData.amazonSpecs) {
+                const specs = liveData.amazonSpecs;
+                if (specs.cpu) rec.laptop.cpu = specs.cpu;
+                if (specs.gpu) rec.laptop.gpu = specs.gpu;
+                if (specs.ram) rec.laptop.ram = specs.ram;
+                if (specs.storage) rec.laptop.storage = specs.storage;
+                if (specs.displayName) rec.laptop.model = specs.displayName;
+                (rec.laptop as any).isSubstitute = true;
+                rec.laptop.price = liveData.price; // sync base price too
+              }
             } else {
               rec.laptop.storePrices = [];
               rec.laptop.lowestPrice = rec.laptop.price;
@@ -230,6 +241,16 @@ const LaptopResults = () => {
           if (liveData && liveData.price) {
             rec.laptop.lowestPrice = liveData.price;
             rec.laptop.storePrices = [{ store: 'Amazon', price: liveData.price, inStock: liveData.inStock, url: liveData.url }];
+            if (liveData.isSubstitute && liveData.amazonSpecs) {
+              const specs = liveData.amazonSpecs;
+              if (specs.cpu) rec.laptop.cpu = specs.cpu;
+              if (specs.gpu) rec.laptop.gpu = specs.gpu;
+              if (specs.ram) rec.laptop.ram = specs.ram;
+              if (specs.storage) rec.laptop.storage = specs.storage;
+              if (specs.displayName) rec.laptop.model = specs.displayName;
+              (rec.laptop as any).isSubstitute = true;
+              rec.laptop.price = liveData.price;
+            }
           } else {
             rec.laptop.storePrices = [];
             rec.laptop.lowestPrice = rec.laptop.price;
@@ -488,7 +509,12 @@ const LaptopResults = () => {
                       )}
                     </div>
                     <p className="text-xs mb-4 font-medium">
-                      {hasLivePrice ? (
+                      {hasLivePrice && (laptop as any).isSubstitute ? (
+                        <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse" />
+                          Similar Amazon Match · Verified Price
+                        </span>
+                      ) : hasLivePrice ? (
                         <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                           Live Amazon Price
