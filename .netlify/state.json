@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Bhadohi",
+			"country": {
+				"code": "IN",
+				"name": "India"
+			},
+			"subdivision": {
+				"code": "UP",
+				"name": "Uttar Pradesh"
+			},
+			"timezone": "Asia/Kolkata",
+			"latitude": 25.3957,
+			"longitude": 82.5748,
+			"postalCode": "221301"
+		},
+		"timestamp": 1773774301918
+	}
+}
