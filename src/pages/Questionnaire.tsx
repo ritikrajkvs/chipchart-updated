@@ -214,13 +214,14 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'targetResolution':
+      case 'targetResolution': {
+        const b = answers.budget || 0;
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { value: '1080p', title: '1080p (Full HD)', desc: 'Best value — most games 100+ FPS', badge: 'Most Popular' },
-              { value: '1440p', title: '1440p (2K)', desc: 'Sweet spot — sharpness + performance', badge: 'Recommended' },
-              { value: '4k', title: '4K (Ultra HD)', desc: 'Cinematic detail — needs a powerful GPU', badge: 'Enthusiast' },
+              { value: '1080p', title: '1080p (Full HD)', desc: 'Best value — most games 100+ FPS', badge: 'Most Popular', warn: false },
+              { value: '1440p', title: '1440p (2K)', desc: 'Sweet spot — sharpness + performance', badge: 'Recommended', warn: b < 60000 },
+              { value: '4k', title: '4K (Ultra HD)', desc: 'Cinematic detail — needs a powerful GPU', badge: 'Enthusiast', warn: b < 80000 },
             ].map((option) => (
               <OptionCard
                 key={option.value}
@@ -229,10 +230,12 @@ const Questionnaire = () => {
                 description={option.desc}
                 selected={answers.targetResolution === option.value}
                 onClick={() => setAnswer('targetResolution', option.value as any)}
+                budgetWarning={option.warn}
               />
             ))}
           </div>
         );
+      }
 
       case 'cpuBrandPreference':
         return (
@@ -288,7 +291,8 @@ const Questionnaire = () => {
           </div>
         );
 
-      case 'ramRequirement':
+      case 'ramRequirement': {
+        const b = answers.budget || 0;
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <OptionCard
@@ -311,11 +315,14 @@ const Questionnaire = () => {
               description="Needed for video editing, 3D rendering, ML/AI workloads."
               selected={answers.ramRequirement === '32gb-plus'}
               onClick={() => setAnswer('ramRequirement', '32gb-plus')}
+              budgetWarning={b < 60000}
             />
           </div>
         );
+      }
 
-      case 'pcFormFactor':
+      case 'pcFormFactor': {
+        const b = answers.budget || 0;
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <OptionCard
@@ -338,9 +345,11 @@ const Questionnaire = () => {
               description="Maximum space for workstation-class builds, custom water cooling, and expansion."
               selected={answers.pcFormFactor === 'full-tower'}
               onClick={() => setAnswer('pcFormFactor', 'full-tower')}
+              budgetWarning={b < 70000}
             />
           </div>
         );
+      }
 
       case 'pcVisualStyle':
         return (
@@ -363,15 +372,16 @@ const Questionnaire = () => {
         );
 
       case 'displayType': {
+        const b = answers.budget || 0;
         const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai';
         const options = isIntensive ? [
-          { value: 'high-hertz', title: 'High Refresh Rate', desc: '144Hz+ for competitive gaming / smooth UI' },
-          { value: 'vibrant-oled', title: 'Color Accurate (OLED)', desc: 'Best for visual fidelity & deep blacks' },
-          { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Basic 60Hz display to save budget' },
+          { value: 'high-hertz', title: 'High Refresh Rate', desc: '144Hz+ for competitive gaming / smooth UI', warn: b < 55000 },
+          { value: 'vibrant-oled', title: 'Color Accurate (OLED)', desc: 'Best for visual fidelity & deep blacks', warn: b < 80000 },
+          { value: 'standard-ips', title: 'Standard (IPS)', desc: 'Basic 60Hz display to save budget', warn: false },
         ] : [
-          { value: 'standard-ips', title: 'Standard Anti-Glare', desc: 'Great for reading & office work' },
-          { value: 'vibrant-oled', title: 'Vibrant Display (OLED)', desc: 'Best for movies & multimedia' },
-          { value: 'touchscreen', title: 'Touchscreen / 2-in-1', desc: 'Best for drawing & note-taking' },
+          { value: 'standard-ips', title: 'Standard Anti-Glare', desc: 'Great for reading & office work', warn: false },
+          { value: 'vibrant-oled', title: 'Vibrant Display (OLED)', desc: 'Best for movies & multimedia', warn: b < 80000 },
+          { value: 'touchscreen', title: 'Touchscreen / 2-in-1', desc: 'Best for drawing & note-taking', warn: b < 70000 },
         ];
         
         return (
@@ -384,19 +394,21 @@ const Questionnaire = () => {
                 description={option.desc}
                 selected={answers.displayType === option.value}
                 onClick={() => setAnswer('displayType', option.value as any)}
+                budgetWarning={option.warn}
               />
             ))}
           </div>
         );
       }
 
-      case 'screenSize':
+      case 'screenSize': {
+        const b = answers.budget || 0;
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { value: 'compact', title: 'Compact (13" - 14")', desc: 'Easy to carry, fits anywhere' },
-              { value: 'standard', title: 'Standard (15" - 16")', desc: 'Sweet spot for work & play' },
-              { value: 'large', title: 'Large (17"+)', desc: 'Max screen real estate, desktop replacement' },
+              { value: 'compact', title: 'Compact (13" - 14")', desc: 'Easy to carry, fits anywhere', warn: b < 55000 },
+              { value: 'standard', title: 'Standard (15" - 16")', desc: 'Sweet spot for work & play', warn: false },
+              { value: 'large', title: 'Large (17"+)', desc: 'Max screen real estate, desktop replacement', warn: b < 65000 },
             ].map((option) => (
               <OptionCard
                 key={option.value}
@@ -405,21 +417,24 @@ const Questionnaire = () => {
                 description={option.desc}
                 selected={answers.screenSize === option.value}
                 onClick={() => setAnswer('screenSize', option.value as any)}
+                budgetWarning={option.warn}
               />
             ))}
           </div>
         );
+      }
 
       case 'mobility': {
+        const b = answers.budget || 0;
         const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai';
         const options = isIntensive ? [
-          { value: 'stationary', title: 'Desktop Replacement', desc: 'Thick & cool, maximum performance (Always Plugged)' },
-          { value: 'balanced', title: 'Balanced Gaming', desc: 'Standard weight, 3-5 hours on battery' },
-          { value: 'on-the-go', title: 'Thin & Light Gaming', desc: 'Highly portable, but runs hotter' },
+          { value: 'stationary', title: 'Desktop Replacement', desc: 'Thick & cool, maximum performance (Always Plugged)', warn: false },
+          { value: 'balanced', title: 'Balanced Gaming', desc: 'Standard weight, 3-5 hours on battery', warn: false },
+          { value: 'on-the-go', title: 'Thin & Light Gaming', desc: 'Highly portable, but runs hotter', warn: b < 70000 },
         ] : [
-          { value: 'stationary', title: 'Stationary', desc: 'Plugged in often' },
-          { value: 'balanced', title: 'Balanced Commute', desc: 'Standard weight/power' },
-          { value: 'on-the-go', title: 'Always On-the-Go', desc: 'Ultra-light, 8+ hrs battery' },
+          { value: 'stationary', title: 'Stationary', desc: 'Plugged in often', warn: false },
+          { value: 'balanced', title: 'Balanced Commute', desc: 'Standard weight/power', warn: false },
+          { value: 'on-the-go', title: 'Always On-the-Go', desc: 'Ultra-light, 8+ hrs battery', warn: b < 55000 },
         ];
         
         return (
@@ -432,13 +447,15 @@ const Questionnaire = () => {
                 description={option.desc}
                 selected={answers.mobility === option.value}
                 onClick={() => setAnswer('mobility', option.value as any)}
+                budgetWarning={option.warn}
               />
             ))}
           </div>
         );
       }
 
-      case 'buildMaterial':
+      case 'buildMaterial': {
+        const b = answers.budget || 0;
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-3">
             <OptionCard
@@ -454,6 +471,7 @@ const Questionnaire = () => {
               description="Sleek, sturdy, and premium feel"
               selected={answers.buildMaterial === 'premium-metal'}
               onClick={() => setAnswer('buildMaterial', 'premium-metal')}
+              budgetWarning={b < 60000}
             />
             <OptionCard
               icon={<CircleDot className="h-5 w-5" />}
@@ -464,14 +482,16 @@ const Questionnaire = () => {
             />
           </div>
         );
+      }
 
-      case 'storageSize':
+      case 'storageSize': {
+        const b = answers.budget || 0;
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { value: 'basic', title: 'Basic (256-512GB)', desc: 'Standard usage' },
-              { value: 'ample', title: 'Ample (1TB)', desc: 'Games and Media' },
-              { value: 'massive', title: 'Massive (2TB+)', desc: 'Heavy archiving' },
+              { value: 'basic', title: 'Basic (256-512GB)', desc: 'Standard usage', warn: false },
+              { value: 'ample', title: 'Ample (1TB)', desc: 'Games and Media', warn: b < 50000 },
+              { value: 'massive', title: 'Massive (2TB+)', desc: 'Heavy archiving', warn: b < 90000 },
             ].map((option) => (
               <OptionCard
                 key={option.value}
@@ -480,20 +500,21 @@ const Questionnaire = () => {
                 description={option.desc}
                 selected={answers.storageSize === option.value}
                 onClick={() => setAnswer('storageSize', option.value as any)}
+                budgetWarning={option.warn}
               />
             ))}
           </div>
         );
+      }
 
       case 'laptopBrandPreference': {
+        const bgt = answers.budget || 0;
         const selected = answers.laptopBrandPreference ?? [];
         const toggleBrand = (value: string) => {
           if (value === 'no-preference') {
-            // If "No Preference" clicked, clear everything and set only no-preference
             const next = selected.includes('no-preference') ? [] : ['no-preference'];
             setAnswer('laptopBrandPreference', next);
           } else {
-            // Remove no-preference when a specific brand is picked
             let next = selected.filter((b) => b !== 'no-preference');
             if (next.includes(value)) {
               next = next.filter((b) => b !== value);
@@ -503,20 +524,21 @@ const Questionnaire = () => {
             setAnswer('laptopBrandPreference', next);
           }
         };
+        const brands = [
+          { value: 'no-preference', title: 'Best Available', desc: 'Pick the top-rated option for me', warn: false },
+          { value: 'apple', title: 'Apple', desc: 'MacBook Air / Pro', warn: bgt < 85000 },
+          { value: 'asus', title: 'ASUS', desc: 'ROG / Vivobook / Zenbook', warn: false },
+          { value: 'lenovo', title: 'Lenovo', desc: 'ThinkPad / IdeaPad / Legion', warn: false },
+          { value: 'dell', title: 'Dell', desc: 'XPS / Inspiron / Alienware', warn: false },
+          { value: 'hp', title: 'HP', desc: 'Pavilion / Envy / Omen', warn: false },
+          { value: 'acer', title: 'Acer', desc: 'Swift / Nitro / Predator', warn: false },
+          { value: 'msi', title: 'MSI', desc: 'Titan / Stealth / Raider', warn: bgt < 70000 },
+          { value: 'samsung', title: 'Samsung', desc: 'Galaxy Book Series', warn: bgt < 60000 },
+        ];
         return (
           <div className="space-y-3">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { value: 'no-preference', title: 'Best Available', desc: 'Pick the top-rated option for me' },
-                { value: 'apple', title: 'Apple', desc: 'MacBook Air / Pro' },
-                { value: 'asus', title: 'ASUS', desc: 'ROG / Vivobook / Zenbook' },
-                { value: 'lenovo', title: 'Lenovo', desc: 'ThinkPad / IdeaPad / Legion' },
-                { value: 'dell', title: 'Dell', desc: 'XPS / Inspiron / Alienware' },
-                { value: 'hp', title: 'HP', desc: 'Pavilion / Envy / Omen' },
-                { value: 'acer', title: 'Acer', desc: 'Swift / Nitro / Predator' },
-                { value: 'msi', title: 'MSI', desc: 'Titan / Stealth / Raider' },
-                { value: 'samsung', title: 'Samsung', desc: 'Galaxy Book Series' },
-              ].map((option) => (
+              {brands.map((option) => (
                 <OptionCard
                   key={option.value}
                   icon={<Laptop className="h-5 w-5" />}
@@ -524,6 +546,7 @@ const Questionnaire = () => {
                   description={option.desc}
                   selected={selected.includes(option.value)}
                   onClick={() => toggleBrand(option.value)}
+                  budgetWarning={option.warn}
                 />
               ))}
             </div>
