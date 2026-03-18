@@ -373,7 +373,7 @@ const Questionnaire = () => {
 
       case 'displayType': {
         const b = answers.budget || 0;
-        const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai';
+        const isIntensive = answers.purpose === 'gaming' || answers.purpose === 'ml-ai' || answers.purpose === 'streaming';
         const options = isIntensive ? [
           { value: 'high-hertz', title: 'High Refresh Rate', desc: '144Hz+ for competitive gaming / smooth UI', warn: b < 55000 },
           { value: 'vibrant-oled', title: 'Color Accurate (OLED)', desc: 'Best for visual fidelity & deep blacks', warn: b < 80000 },
@@ -408,7 +408,7 @@ const Questionnaire = () => {
             {[
               { value: 'compact', title: 'Compact (13" - 14")', desc: 'Easy to carry, fits anywhere', warn: b < 55000 },
               { value: 'standard', title: 'Standard (15" - 16")', desc: 'Sweet spot for work & play', warn: false },
-              { value: 'large', title: 'Large (17"+)', desc: 'Max screen real estate, desktop replacement', warn: b < 65000 },
+              { value: 'large', title: 'Large (16"+)', desc: 'Max screen real estate, desktop replacement', warn: b < 65000 },
             ].map((option) => (
               <OptionCard
                 key={option.value}

@@ -340,7 +340,7 @@ export async function fetchGeminiLaptops(
     return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. Do not suggest any other brand.`;
   })();
 
-  const screenSizeHint = answers.screenSize === 'compact' ? 'CRITICAL: MUST be 13-inch or 14-inch screen (DO NOT suggest 15-inch or larger).' : answers.screenSize === 'large' ? 'CRITICAL: MUST be 16-inch or 17-inch+ screen.' : 'Standard 15-inch or 16-inch screen.';
+  const screenSizeHint = answers.screenSize === 'compact' ? 'CRITICAL: MUST be 13-inch or 14-inch screen (DO NOT suggest 15-inch or larger).' : answers.screenSize === 'large' ? 'CRITICAL: MUST be 16-inch or larger screen.' : 'Standard 15-inch or 16-inch screen.';
   const mobilityHint = answers.mobility === 'on-the-go' ? 'CRITICAL: MUST be highly portable, ultra-lightweight (under 1.6kg). DO NOT suggest heavy or bulky laptops (like gaming bricks) if this is selected. MUST have long battery life.' : answers.mobility === 'stationary' ? 'Weight & battery life are not critical. Can be a thick, heavy desktop replacement or high-performance gaming laptop.' : 'Moderate weight (1.7kg - 2.2kg) and average battery.';
   const buildHint = answers.buildMaterial === 'premium-metal' ? 'MUST have a premium Aluminum or Magnesium chassis. Avoid mostly plastic bodies.' : 'Any build material is acceptable.';
   const storageHint = answers.storageSize === 'massive' ? 'MUST have at least 2TB SSD.' : answers.storageSize === 'ample' ? 'MUST have at least 1TB SSD.' : 'At least 512GB SSD.';
