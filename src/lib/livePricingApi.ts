@@ -1,4 +1,5 @@
 // Dual-provider live pricing: Apify (primary) → RapidAPI (fallback)
+// Now with brand-matching and price sanity checks to avoid wrong-product prices.
 import { livePriceCache } from './apiCache';
 
 interface LivePriceResult {
@@ -9,9 +10,27 @@ interface LivePriceResult {
 }
 
 // ──────────────────────────────────────────────
+// HELPER — does the product title look like the laptop we want?
+// ──────────────────────────────────────────────
+function titleMatchesBrand(title: string, brand: string): boolean {
+  if (!title || !brand) return false;
+  return title.toLowerCase().includes(brand.toLowerCase());
+}
+
+function isPriceSane(livePrice: number, aiEstimate: number): boolean {
+  if (!aiEstimate || aiEstimate <= 0) return true; // can't validate, accept
+  // Accept if live price is between 30% and 200% of AI estimate
+  return livePrice >= aiEstimate * 0.3 && livePrice <= aiEstimate * 2;
+}
+
+// ──────────────────────────────────────────────
 // PROVIDER 1 — Apify REST API (junglee/amazon-crawler)
 // ──────────────────────────────────────────────
-async function fetchViaApify(searchQuery: string): Promise<LivePriceResult | null> {
+async function fetchViaApify(
+  searchQuery: string,
+  brand: string,
+  aiEstimatedPrice: number
+): Promise<LivePriceResult | null> {
   const token = import.meta.env.VITE_APIFY_API_TOKEN;
   if (!token) return null;
 
@@ -19,7 +38,7 @@ async function fetchViaApify(searchQuery: string): Promise<LivePriceResult | nul
 
   const input = {
     categoryOrProductUrls: [{ url: searchUrl }],
-    maxItems: 1,
+    maxItems: 5, // fetch more results so we can pick the best match
     proxyConfiguration: { useApifyProxy: true }
   };
 
@@ -50,17 +69,37 @@ async function fetchViaApify(searchQuery: string): Promise<LivePriceResult | nul
     const items: any[] = await dsRes.json();
     if (!items || items.length === 0) return null;
 
-    const top = items[0];
-    let cleanPrice: number | null = null;
-    if (typeof top.price === 'number') cleanPrice = top.price;
-    else if (typeof top.price === 'string') cleanPrice = parseInt(top.price.replace(/[^0-9]/g, ''), 10);
+    // Pick the FIRST item whose title contains the brand name
+    for (const item of items) {
+      const title = item.title || item.name || '';
+      if (!titleMatchesBrand(title, brand)) {
+        console.log(`[Apify] Skipping non-matching result: "${title.substring(0, 60)}..."`);
+        continue;
+      }
 
-    return {
-      store: 'Amazon',
-      price: cleanPrice,
-      inStock: top.isAvailable !== false,
-      url: top.url || searchUrl
-    };
+      let cleanPrice: number | null = null;
+      if (typeof item.price === 'number') cleanPrice = item.price;
+      else if (typeof item.price === 'string') cleanPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
+
+      if (!cleanPrice || cleanPrice <= 0) continue;
+
+      // Sanity check: is this price in the right ballpark?
+      if (!isPriceSane(cleanPrice, aiEstimatedPrice)) {
+        console.log(`[Apify] Price ₹${cleanPrice} is too far from AI estimate ₹${aiEstimatedPrice}. Skipping.`);
+        continue;
+      }
+
+      console.log(`[Apify] ✓ Matched: "${title.substring(0, 60)}" → ₹${cleanPrice}`);
+      return {
+        store: 'Amazon',
+        price: cleanPrice,
+        inStock: item.isAvailable !== false,
+        url: item.url || searchUrl
+      };
+    }
+
+    console.log(`[Apify] No brand-matched result found for "${brand}" in ${items.length} results.`);
+    return null;
   } catch (err) {
     console.warn('[Apify] Fetch failed:', err);
     return null;
@@ -70,7 +109,11 @@ async function fetchViaApify(searchQuery: string): Promise<LivePriceResult | nul
 // ──────────────────────────────────────────────
 // PROVIDER 2 — RapidAPI Real-Time Amazon Data (fallback)
 // ──────────────────────────────────────────────
-async function fetchViaRapidAPI(searchQuery: string): Promise<LivePriceResult | null> {
+async function fetchViaRapidAPI(
+  searchQuery: string,
+  brand: string,
+  aiEstimatedPrice: number
+): Promise<LivePriceResult | null> {
   const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY;
   if (!rapidApiKey) return null;
 
@@ -92,19 +135,38 @@ async function fetchViaRapidAPI(searchQuery: string): Promise<LivePriceResult | 
     }
 
     const result = await res.json();
-    if (result.data?.products?.length > 0) {
-      const top = result.data.products[0];
-      const cleanPrice = top.product_price
-        ? parseInt(top.product_price.replace(/[^0-9]/g, ''), 10)
+    const products = result.data?.products;
+    if (!products || products.length === 0) return null;
+
+    // Scan products for brand match + sane price
+    for (const product of products) {
+      const title = product.product_title || '';
+      if (!titleMatchesBrand(title, brand)) {
+        console.log(`[RapidAPI] Skipping non-matching: "${title.substring(0, 60)}..."`);
+        continue;
+      }
+
+      const cleanPrice = product.product_price
+        ? parseInt(product.product_price.replace(/[^0-9]/g, ''), 10)
         : null;
 
+      if (!cleanPrice || cleanPrice <= 0) continue;
+
+      if (!isPriceSane(cleanPrice, aiEstimatedPrice)) {
+        console.log(`[RapidAPI] Price ₹${cleanPrice} too far from AI estimate ₹${aiEstimatedPrice}. Skipping.`);
+        continue;
+      }
+
+      console.log(`[RapidAPI] ✓ Matched: "${title.substring(0, 60)}" → ₹${cleanPrice}`);
       return {
         store: 'Amazon',
         price: cleanPrice,
-        inStock: top.is_prime || top.product_price != null,
-        url: top.product_url
+        inStock: product.is_prime || product.product_price != null,
+        url: product.product_url
       };
     }
+
+    console.log(`[RapidAPI] No brand-matched result found for "${brand}" in ${products.length} results.`);
     return null;
   } catch (err) {
     console.warn('[RapidAPI] Fetch failed:', err);
@@ -114,8 +176,13 @@ async function fetchViaRapidAPI(searchQuery: string): Promise<LivePriceResult | 
 
 // ──────────────────────────────────────────────
 // PUBLIC API — try Apify first, then fall back to RapidAPI
+// Now accepts brand + aiEstimatedPrice for validation
 // ──────────────────────────────────────────────
-export async function fetchLiveAmazonPrice(searchQuery: string): Promise<LivePriceResult | null> {
+export async function fetchLiveAmazonPrice(
+  searchQuery: string,
+  brand: string = '',
+  aiEstimatedPrice: number = 0
+): Promise<LivePriceResult | null> {
   const cachedPrice = livePriceCache.get(searchQuery);
   if (cachedPrice) {
     console.log(`[LivePrice] Got price from Cache: ₹${cachedPrice.price}`);
@@ -123,7 +190,7 @@ export async function fetchLiveAmazonPrice(searchQuery: string): Promise<LivePri
   }
 
   // 1. Try Apify first
-  const apifyResult = await fetchViaApify(searchQuery);
+  const apifyResult = await fetchViaApify(searchQuery, brand, aiEstimatedPrice);
   if (apifyResult && apifyResult.price) {
     console.log(`[LivePrice] Got price from Apify: ₹${apifyResult.price}`);
     livePriceCache.set(searchQuery, apifyResult);
@@ -132,7 +199,7 @@ export async function fetchLiveAmazonPrice(searchQuery: string): Promise<LivePri
 
   // 2. Apify failed or returned no price — fall back to RapidAPI
   console.log('[LivePrice] Apify failed or returned no data. Falling back to RapidAPI...');
-  const rapidResult = await fetchViaRapidAPI(searchQuery);
+  const rapidResult = await fetchViaRapidAPI(searchQuery, brand, aiEstimatedPrice);
   if (rapidResult && rapidResult.price) {
     console.log(`[LivePrice] Got price from RapidAPI: ₹${rapidResult.price}`);
     livePriceCache.set(searchQuery, rapidResult);

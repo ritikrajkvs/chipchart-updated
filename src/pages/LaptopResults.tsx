@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Monitor, HardDrive, Battery, Scale, Check, X,
   ExternalLink, ArrowLeft, RefreshCw, Zap, Star, ShoppingCart,
-  Plus, TrendingDown, ChevronDown, ChevronUp, Tag, AlertCircle, BarChart3, Brain
+  Plus, TrendingDown, ChevronDown, ChevronUp, Tag, AlertCircle, BarChart3, Brain, Search
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -141,9 +141,12 @@ const LaptopResults = () => {
         // 3. Fetch live prices sequentially (Apify primary → RapidAPI fallback)
         for (let i = 0; i < recs.length; i++) {
           const rec = recs[i];
-          const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
+          const liveAmazonData = await fetchLiveAmazonPrice(
+            rec.laptop.searchQuery,
+            rec.laptop.brand,
+            rec.laptop.price
+          );
           if (liveAmazonData && liveAmazonData.price) {
-            rec.laptop.price = liveAmazonData.price;
             rec.laptop.lowestPrice = liveAmazonData.price;
             rec.laptop.storePrices = [
               {
@@ -151,23 +154,11 @@ const LaptopResults = () => {
                 price: liveAmazonData.price,
                 inStock: liveAmazonData.inStock,
                 url: liveAmazonData.url
-              },
-              {
-                store: 'Flipkart',
-                price: liveAmazonData.price, // use same price for sorting
-                inStock: true,
-                url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
               }
             ];
           } else {
-            rec.laptop.storePrices = [
-              {
-                store: 'Flipkart',
-                price: rec.laptop.price,
-                inStock: true,
-                url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
-              }
-            ];
+            // No live price — keep AI estimate, no storePrices
+            rec.laptop.storePrices = [];
             rec.laptop.lowestPrice = rec.laptop.price;
           }
           // Small delay between calls to be safe with RapidAPI fallback rate limits
@@ -235,9 +226,12 @@ const LaptopResults = () => {
       // Fetch live prices sequentially (Apify primary → RapidAPI fallback)
       for (let i = 0; i < newRecs.length; i++) {
         const rec = newRecs[i];
-        const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
+        const liveAmazonData = await fetchLiveAmazonPrice(
+          rec.laptop.searchQuery,
+          rec.laptop.brand,
+          rec.laptop.price
+        );
         if (liveAmazonData && liveAmazonData.price) {
-          rec.laptop.price = liveAmazonData.price;
           rec.laptop.lowestPrice = liveAmazonData.price;
           rec.laptop.storePrices = [
             {
@@ -245,23 +239,10 @@ const LaptopResults = () => {
               price: liveAmazonData.price,
               inStock: liveAmazonData.inStock,
               url: liveAmazonData.url
-            },
-            {
-              store: 'Flipkart',
-              price: liveAmazonData.price,
-              inStock: true,
-              url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
             }
           ];
         } else {
-          rec.laptop.storePrices = [
-            {
-              store: 'Flipkart',
-              price: rec.laptop.price,
-              inStock: true,
-              url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
-            }
-          ];
+          rec.laptop.storePrices = [];
           rec.laptop.lowestPrice = rec.laptop.price;
         }
         if (i < newRecs.length - 1) {
@@ -435,7 +416,9 @@ const LaptopResults = () => {
             const mpn = extractMpn(laptop.model);
             const displayName = formatDisplayName(laptop.brand, laptop.model);
             const hasDeals = laptop.storePrices && laptop.storePrices.length > 0;
+            const hasLivePrice = hasDeals && laptop.storePrices!.some(s => s.store === 'Amazon');
             const targetPrice = laptop.lowestPrice ?? (hasDeals ? Math.max(...laptop.storePrices!.map(s => s.price)) : laptop.price);
+            const flipkartUrl = buildStoreUrl('Flipkart', laptop.searchQuery || `${laptop.brand} ${displayName} ${laptop.cpu}`);
             const savings = laptop.price - targetPrice;
             const isExpanded = expandedDeals.has(laptop.id);
             const isFpsOpen = expandedFps.has(laptop.id);
@@ -521,8 +504,24 @@ const LaptopResults = () => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mb-3 font-medium">
-                      {hasDeals ? `Best price across ${laptop.storePrices!.filter(s => s.inStock).length} stores` : 'AI Estimated Price (Verify on store)'}
+                      {hasLivePrice ? (
+                        <span className="text-emerald-400">✓ Live Amazon Price</span>
+                      ) : (
+                        <span className="text-amber-400">⚡ AI Estimated Price (verify on store)</span>
+                      )}
                     </p>
+
+                    {/* Always-visible Flipkart button — no API call, direct search */}
+                    <a
+                      href={flipkartUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full mb-3 px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 transition-colors cursor-pointer"
+                    >
+                      <Search className="h-3.5 w-3.5 text-blue-400" />
+                      <span className="text-sm font-semibold text-blue-400">Check Live Price on Flipkart</span>
+                      <ExternalLink className="h-3 w-3 text-blue-400/60" />
+                    </a>
 
                     {/* Action row */}
                     <div className="flex gap-2 mb-2 relative">
