@@ -396,13 +396,12 @@ VALUE & PRICING RULES:
 
 RULES:
 - "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
-- "searchQuery" MUST be an optimized search string combining ONLY the full name of the laptop, processor, graphics card, and RAM (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 16GB"). Do NOT include the specific model number or MPN in the searchQuery.
-- Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
-- storePrices MUST include EXACTLY two stores: "Amazon" and "Flipkart". No other stores.
-- "inStock" MUST ALWAYS be set to true for every store entry. Do not guess stock status.
-- "price" = your best estimate of the typical selling price on Amazon/Flipkart.
+- "searchQuery" MUST BE HIGHLY OPTIMIZED FOR E-COMMERCE SEARCH APIS. It must contain the Brand, Model Family, CPU, and GPU. Do not include vague terms. Example: "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 laptop".
+- "price" = your best estimate of the historical MSRP. (Note: The frontend will override this with live API data).
+- "inStock" = set to true for now as a placeholder. (Note: The frontend will override this with live API data).
+- Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely.
+- storePrices MUST include exactly two placeholder entries: "Amazon" and "Flipkart".
 - "lowestPrice" = set this EQUAL to "price" (same value). Do not fabricate discounts.
-- Both storePrices entries should have the EXACT SAME price as the main "price" field.
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.

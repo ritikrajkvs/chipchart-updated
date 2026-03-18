@@ -20,6 +20,7 @@ import { fetchGeminiLaptops } from '@/lib/geminiApi';
 import { useBucketStore } from '@/store/bucketStore';
 import { cn } from '@/lib/utils';
 import { apiCache } from '@/lib/apiCache';
+import { fetchLiveAmazonPrice } from '@/lib/livePricingApi';
 
 // Store brand colors / logos (text fallback)
 const STORE_STYLES: Record<string, { color: string; bg: string; border: string }> = {
@@ -132,9 +133,29 @@ const LaptopResults = () => {
         }
 
         // 2. If not in cache, call Gemini
-        const recs = await fetchGeminiLaptops(answers);
+        let recs = await fetchGeminiLaptops(answers);
         
-        // 3. Save the result to the cache for the next page reload
+        // 3. Fetch live prices concurrently for all recommendations
+        recs = await Promise.all(
+          recs.map(async (rec) => {
+            const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
+            if (liveAmazonData && liveAmazonData.price) {
+              rec.laptop.price = liveAmazonData.price;
+              rec.laptop.lowestPrice = liveAmazonData.price;
+              rec.laptop.storePrices = [{
+                store: 'Amazon',
+                price: liveAmazonData.price,
+                inStock: liveAmazonData.inStock,
+                url: liveAmazonData.url
+              }];
+              // We could explicitly remove Flipkart here since RapidAPI is Amazon only
+              // or leave it as the AI fallback. We'll leave it out for accuracy based on the live data.
+            }
+            return rec;
+          })
+        );
+        
+        // 4. Save the result to the cache for the next page reload
         apiCache.set(answers, recs);
         
         setRecommendations(recs);
