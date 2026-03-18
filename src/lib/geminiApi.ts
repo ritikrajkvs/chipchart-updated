@@ -18,6 +18,8 @@ Robust Model Fallback Wrapper
 
 const FALLBACK_MODELS = [
   "gemini-3.1-flash-lite-preview",
+  "gemini-2.0-flash",        // Stable, high quota fallback
+  "gemini-1.5-flash",        // Widely available fallback
 ];
 
 // Extract suggested retry delay (in ms) from the API error message
@@ -35,23 +37,21 @@ async function generateWithFallback(prompt: string) {
   for (let i = 0; i < FALLBACK_MODELS.length; i++) {
     const modelName = FALLBACK_MODELS[i];
     let retries = 0;
-    const maxRetriesPerModel = 5;
+    const maxRetriesPerModel = 3; // Reduced: fail fast and try next model
 
     while (retries < maxRetriesPerModel) {
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          tools: [
-            {
-              googleSearch: {}
-            } as any,
-          ],
+          // NOTE: googleSearch tool has been REMOVED.
+          // It has near-zero free-tier rate limits on preview models,
+          // causing persistent 429 errors regardless of API key or account.
+          // The prompts still instruct the model to provide current pricing.
           generationConfig: {
-            temperature: 0.2, // Low temperature = high stability, no hallucinations
+            temperature: 0.2,
             topP: 0.9,
             maxOutputTokens: 8192,
-            // NOTE: responseMimeType: "application/json" is INCOMPATIBLE with googleSearch tool.
-            // The extractJSON() function handles parsing the raw text response instead.
+            responseMimeType: "application/json",
           }
         });
 
