@@ -50,7 +50,8 @@ async function generateWithFallback(prompt: string) {
             temperature: 0.2, // Low temperature = high stability, no hallucinations
             topP: 0.9,
             maxOutputTokens: 8192,
-            responseMimeType: "application/json" // CRITICAL: Forces perfect JSON structure
+            // NOTE: responseMimeType: "application/json" is INCOMPATIBLE with googleSearch tool.
+            // The extractJSON() function handles parsing the raw text response instead.
           }
         });
 
