@@ -135,25 +135,25 @@ const LaptopResults = () => {
         // 2. If not in cache, call Gemini
         let recs = await fetchGeminiLaptops(answers);
         
-        // 3. Fetch live prices concurrently for all recommendations
-        recs = await Promise.all(
-          recs.map(async (rec) => {
-            const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
-            if (liveAmazonData && liveAmazonData.price) {
-              rec.laptop.price = liveAmazonData.price;
-              rec.laptop.lowestPrice = liveAmazonData.price;
-              rec.laptop.storePrices = [{
-                store: 'Amazon',
-                price: liveAmazonData.price,
-                inStock: liveAmazonData.inStock,
-                url: liveAmazonData.url
-              }];
-              // We could explicitly remove Flipkart here since RapidAPI is Amazon only
-              // or leave it as the AI fallback. We'll leave it out for accuracy based on the live data.
-            }
-            return rec;
-          })
-        );
+        // 3. Fetch live prices sequentially to avoid 429 rate limits on RapidAPI free tier
+        for (let i = 0; i < recs.length; i++) {
+          const rec = recs[i];
+          const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
+          if (liveAmazonData && liveAmazonData.price) {
+            rec.laptop.price = liveAmazonData.price;
+            rec.laptop.lowestPrice = liveAmazonData.price;
+            rec.laptop.storePrices = [{
+              store: 'Amazon',
+              price: liveAmazonData.price,
+              inStock: liveAmazonData.inStock,
+              url: liveAmazonData.url
+            }];
+          }
+          // Add a 1000ms delay between requests to respect free tier limits (except after the last one)
+          if (i < recs.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
         
         // 4. Save the result to the cache for the next page reload
         apiCache.set(answers, recs);
@@ -209,8 +209,27 @@ const LaptopResults = () => {
     try {
       const existingModels = recommendations.map(r => r.laptop.model).join(', ');
       const answersWithExcludes = { ...answers, _excludeModels: existingModels } as any;
-      const newRecs = await fetchGeminiLaptops(answersWithExcludes);
+      let newRecs = await fetchGeminiLaptops(answersWithExcludes);
       
+      // Fetch live prices sequentially to avoid 429 rate limits on RapidAPI free tier
+      for (let i = 0; i < newRecs.length; i++) {
+        const rec = newRecs[i];
+        const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
+        if (liveAmazonData && liveAmazonData.price) {
+          rec.laptop.price = liveAmazonData.price;
+          rec.laptop.lowestPrice = liveAmazonData.price;
+          rec.laptop.storePrices = [{
+            store: 'Amazon',
+            price: liveAmazonData.price,
+            inStock: liveAmazonData.inStock,
+            url: liveAmazonData.url
+          }];
+        }
+        if (i < newRecs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
       const merged = [...recommendations, ...newRecs];
       
       // Update cache with the new merged list!
