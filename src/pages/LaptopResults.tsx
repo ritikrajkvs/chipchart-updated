@@ -135,7 +135,7 @@ const LaptopResults = () => {
         // 2. If not in cache, call Gemini
         let recs = await fetchGeminiLaptops(answers);
         
-        // 3. Fetch live prices sequentially to avoid 429 rate limits on RapidAPI free tier
+        // 3. Fetch live prices sequentially (Apify primary → RapidAPI fallback)
         for (let i = 0; i < recs.length; i++) {
           const rec = recs[i];
           const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
@@ -149,7 +149,7 @@ const LaptopResults = () => {
               url: liveAmazonData.url
             }];
           }
-          // Add a minimum 1.5s delay between requests to absolutely guarantee we dodge the 1/s rate limit
+          // Small delay between calls to be safe with RapidAPI fallback rate limits
           if (i < recs.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 1500));
           }
@@ -211,7 +211,7 @@ const LaptopResults = () => {
       const answersWithExcludes = { ...answers, _excludeModels: existingModels } as any;
       let newRecs = await fetchGeminiLaptops(answersWithExcludes);
       
-      // Fetch live prices sequentially to avoid 429 rate limits on RapidAPI free tier
+      // Fetch live prices sequentially (Apify primary → RapidAPI fallback)
       for (let i = 0; i < newRecs.length; i++) {
         const rec = newRecs[i];
         const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery);
