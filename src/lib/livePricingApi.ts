@@ -31,7 +31,12 @@ export async function fetchLiveAmazonPrice(searchQuery: string) {
     });
 
     if (!runResponse.ok) {
-      console.error(`Apify Actor failed to run: ${runResponse.statusText}`);
+      let errorDetails = "";
+      try {
+        const errJson = await runResponse.json();
+        errorDetails = JSON.stringify(errJson);
+      } catch(e) { /* ignore */ }
+      console.error(`Apify Actor failed to run (Status ${runResponse.status}):`, errorDetails || runResponse.statusText);
       return null;
     }
 
