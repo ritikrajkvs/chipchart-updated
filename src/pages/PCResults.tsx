@@ -19,7 +19,8 @@ import {
 import { fetchGeminiPCBuilds } from '@/lib/geminiApi';
 import { useBucketStore, BucketItemType } from '@/store/bucketStore';
 import { cn } from '@/lib/utils';
-import { apiCache } from '@/lib/apiCache';
+import { pcCache } from '@/lib/apiCache';
+import { fetchPrebuiltPCPrice } from '@/lib/livePricingApi';
 
 
 
@@ -55,30 +56,106 @@ const PCResults = () => {
 
   const hasFetched = useRef(false);
 
+  // EARLY GUARD: prevent crashes on refresh before Zustand hydrates
+  const hasValidAnswers = !!answers.budget;
+
   useEffect(() => {
-    // Guard: only fetch ONCE when the page first loads
     if (hasFetched.current) return;
+    if (!hasValidAnswers) return;
     hasFetched.current = true;
 
     async function fetchBuilds() {
       setLoading(true);
       setError(null);
       try {
-        // 1. Check if we already fetched these exact answers recently
-        const cachedRecs = apiCache.get(answers);
+        // 1. Check 7-day cache
+        const cachedRecs = pcCache.get(answers);
         if (cachedRecs) {
-          console.log("Serving from cache, saved 1 API call!");
+          console.log("Serving PC builds from 7-day cache!");
           setBuilds(cachedRecs);
           setInsights(generatePCInsights(cachedRecs, answers));
           setLoading(false);
           return;
         }
 
-        // 2. If not in cache, call Gemini
-        const recommendations = await fetchGeminiPCBuilds(answers);
-        
-        // 3. Save the result to the cache for the next page reload
-        apiCache.set(answers, recommendations);
+        // 2. Fetch from Gemini
+        let recommendations = await fetchGeminiPCBuilds(answers);
+
+        // 3. Fetch live prebuilt prices
+        for (const build of recommendations) {
+          if (build.type === 'prebuilt') {
+            const prebuiltName = (build as any).prebuiltModel || build.name;
+            const livePrice = await fetchPrebuiltPCPrice(prebuiltName, build.totalPrice);
+            if (livePrice && livePrice.price) {
+              (build as any).livePrebuiltPrice = livePrice.price;
+              (build as any).livePrebuiltUrl = livePrice.url;
+              (build as any).livePrebuiltInStock = livePrice.inStock;
+            }
+          }
+        }
+
+        // 4. Budget filter: drop builds exceeding 115% of budget
+        const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
+        recommendations = recommendations.filter(b => {
+          const price = (b as any).livePrebuiltPrice ?? b.totalPrice;
+          if (price > budgetCeiling) {
+            console.warn(`[PC Budget Filter] Dropping "${b.name}" — ₹${price} exceeds ₹${budgetCeiling}`);
+            return false;
+          }
+          return true;
+        });
+
+        // 5. GUARANTEE ONE PREBUILT
+        let hasPrebuilt = recommendations.some(b => b.type === 'prebuilt');
+        let prebuiltAttempts = 0;
+
+        while (!hasPrebuilt && prebuiltAttempts < 3) {
+          prebuiltAttempts++;
+          console.log(`[PC] Missing valid prebuilt. Fetching replacement (Attempt ${prebuiltAttempts})...`);
+          const excludeNames = recommendations.map(b => b.name).join(', ');
+          const retry = await fetchGeminiPCBuilds({ ...answers, _excludeNames: excludeNames } as any);
+          
+          for (const build of retry) {
+            if (build.type === 'prebuilt' && !hasPrebuilt) {
+              const prebuiltName = (build as any).prebuiltModel || build.name;
+              const livePrice = await fetchPrebuiltPCPrice(prebuiltName, build.totalPrice);
+              if (livePrice?.price) {
+                (build as any).livePrebuiltPrice = livePrice.price;
+                (build as any).livePrebuiltUrl = livePrice.url;
+              }
+              const price = (build as any).livePrebuiltPrice ?? build.totalPrice;
+              if (price <= budgetCeiling) {
+                recommendations.push(build);
+                hasPrebuilt = true; // Secured a prebuilt!
+              }
+            } else if (recommendations.length < 3) {
+                // If we also need custom builds to fill exactly 3 spots
+                const price = build.totalPrice;
+                if(price <= budgetCeiling) recommendations.push(build);
+            }
+          }
+        }
+
+        // 6. If we still need custom builds to reach 3 total (rare)
+        if (recommendations.length < 3) {
+           let attempts = 0;
+           while(recommendations.length < 3 && attempts < 2) {
+              attempts++;
+              const excludeNames = recommendations.map(b => b.name).join(', ');
+              const retry = await fetchGeminiPCBuilds({ ...answers, _excludeNames: excludeNames } as any);
+              for (const build of retry) {
+                  if (build.type !== 'prebuilt') {
+                      const price = build.totalPrice;
+                      if (price <= budgetCeiling && recommendations.length < 3) {
+                          recommendations.push(build);
+                      }
+                  }
+              }
+           }
+        }
+
+        // 7. Save to 7-day cache
+        pcCache.set(answers, recommendations);
 
         setBuilds(recommendations);
         setInsights(generatePCInsights(recommendations, answers));
@@ -90,9 +167,24 @@ const PCResults = () => {
       }
     }
     fetchBuilds();
-  // Empty deps — intentional: we only want to call the API once per page visit
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasValidAnswers]);
+
+  // Session guard — render BEFORE loading check
+  if (!hasValidAnswers) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <RefreshCw className="h-10 w-10 text-accent mx-auto mb-4" />
+          <h2 className="text-2xl font-bold font-heading">Session Expired</h2>
+          <p className="text-muted-foreground max-w-md">Please complete the questionnaire again to get recommendations.</p>
+          <Button variant="accent" asChild>
+            <Link to="/questionnaire">Start Questionnaire</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -120,21 +212,6 @@ const PCResults = () => {
     );
   }
 
-  // Guard: if answers got wiped (e.g. hard refresh before persist loads) send back to questionnaire
-  if (!answers.budget) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <RefreshCw className="h-10 w-10 text-accent mx-auto mb-4" />
-          <h2 className="text-2xl font-bold font-heading">Session Expired</h2>
-          <p className="text-muted-foreground max-w-md">Please complete the questionnaire again to get recommendations.</p>
-          <Button variant="accent" asChild>
-            <Link to="/questionnaire">Start Questionnaire</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Helper to fix LLM occasionally prefixing the name with the brand when we already display the brand
   const formatDisplayName = (brand: string, name: string) => {
@@ -150,16 +227,65 @@ const PCResults = () => {
   const handleLoadMore = async () => {
     setLoadingMore(true);
     try {
-      // Create a modified prompt object that tells AI to avoid the currently generated names
+      const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
       const existingNames = builds.map(b => b.name).join(', ');
       const answersWithExcludes = { ...answers, _excludeNames: existingNames } as any;
-      const newBuilds = await fetchGeminiPCBuilds(answersWithExcludes);
-      
+      let newBuilds = await fetchGeminiPCBuilds(answersWithExcludes);
+
+      // Fetch live prebuilt prices
+      for (const build of newBuilds) {
+        if (build.type === 'prebuilt') {
+          const prebuiltName = (build as any).prebuiltModel || build.name;
+          const livePrice = await fetchPrebuiltPCPrice(prebuiltName, build.totalPrice);
+          if (livePrice?.price) {
+            (build as any).livePrebuiltPrice = livePrice.price;
+            (build as any).livePrebuiltUrl = livePrice.url;
+          }
+        }
+      }
+
+      // Budget filter
+      newBuilds = newBuilds.filter(b => {
+        const price = (b as any).livePrebuiltPrice ?? b.totalPrice;
+        if (price > budgetCeiling) {
+          console.warn(`[PC Budget Filter - Load More] Dropping "${b.name}" — ₹${price}`);
+          return false;
+        }
+        return true;
+      });
+
+      // GUARANTEE ONE PREBUILT IN LOAD MORE
+      let hasPrebuilt = newBuilds.some(b => b.type === 'prebuilt');
+      let prebuiltAttempts = 0;
+
+      while (!hasPrebuilt && prebuiltAttempts < 3) {
+        prebuiltAttempts++;
+        console.log(`[PC] Load More missing valid prebuilt. Fetching replacement (Attempt ${prebuiltAttempts})...`);
+        const excludeNames = [...builds, ...newBuilds].map(b => b.name).join(', ');
+        const retry = await fetchGeminiPCBuilds({ ...answers, _excludeNames: excludeNames } as any);
+        
+        for (const build of retry) {
+          if (build.type === 'prebuilt' && !hasPrebuilt) {
+            const prebuiltName = (build as any).prebuiltModel || build.name;
+            const livePrice = await fetchPrebuiltPCPrice(prebuiltName, build.totalPrice);
+            if (livePrice?.price) {
+              (build as any).livePrebuiltPrice = livePrice.price;
+              (build as any).livePrebuiltUrl = livePrice.url;
+            }
+            const price = (build as any).livePrebuiltPrice ?? build.totalPrice;
+            if (price <= budgetCeiling) {
+              newBuilds.push(build);
+              hasPrebuilt = true;
+            }
+          } else if (newBuilds.length < 3) {
+             const price = build.totalPrice;
+             if(price <= budgetCeiling) newBuilds.push(build);
+          }
+        }
+      }
+
       const merged = [...builds, ...newBuilds];
-      
-      // Update cache with the new merged list!
-      apiCache.set(answers, merged);
-      
+      pcCache.set(answers, merged);
       setBuilds(merged);
       setInsights(generatePCInsights(merged, answers));
     } catch (err) {
@@ -521,6 +647,7 @@ const PCResults = () => {
             className="space-y-4"
           >
             {/* Compatibility */}
+            {currentBuild.compatibility?.checks && currentBuild.compatibility.checks.length > 0 && (
             <div className="rounded-2xl border border-border bg-card p-4">
               <h3 className="font-heading font-bold text-sm mb-3 flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" /> Compatibility
@@ -534,8 +661,10 @@ const PCResults = () => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Bottleneck */}
+            {currentBuild.bottleneck && (
             <div className="rounded-2xl border border-border bg-card p-4">
               <h3 className="font-heading font-bold text-sm mb-3 flex items-center gap-2">
                 <Gauge className="h-4 w-4 text-accent" /> Bottleneck
@@ -554,9 +683,10 @@ const PCResults = () => {
               </div>
               <p className="text-xs text-muted-foreground">{currentBuild.bottleneck.explanation}</p>
             </div>
+            )}
 
             {/* FPS Estimates */}
-            {currentBuild.fpsEstimates.length > 0 && (
+            {currentBuild.fpsEstimates && currentBuild.fpsEstimates.length > 0 && (
               <div className="rounded-2xl border border-border bg-card p-4">
                 <h3 className="font-heading font-bold text-sm mb-3 flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-accent" /> FPS Estimates (1080p)

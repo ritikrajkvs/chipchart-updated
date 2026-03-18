@@ -280,12 +280,21 @@ Return ONLY this JSON array:
     "performanceScore": 82,
     "compatibility": { "isCompatible": true, "checks": [{ "name": "CPU-Motherboard Socket", "passed": true, "message": "AM5 compatible" }] },
     "bottleneck": { "percentage": 5, "bottleneckComponent": "Balanced", "explanation": "Well-balanced build" },
-    "fpsEstimates": [{ "game": "Valorant", "fps": { "low": 200, "medium": 180, "high": 150, "ultra": 100 } }],
+    "fpsEstimates": [
+      { "game": "GTA V", "fps": { "low": 160, "medium": 130, "high": 100, "ultra": 70 } },
+      { "game": "Red Dead Redemption 2", "fps": { "low": 90, "medium": 70, "high": 50, "ultra": 35 } },
+      { "game": "Valorant", "fps": { "low": 300, "medium": 250, "high": 200, "ultra": 150 } },
+      { "game": "Fortnite", "fps": { "low": 180, "medium": 140, "high": 100, "ultra": 70 } },
+      { "game": "Cyberpunk 2077", "fps": { "low": 80, "medium": 60, "high": 45, "ultra": 30 } },
+      { "game": "Elden Ring", "fps": { "low": 100, "medium": 80, "high": 60, "ultra": 45 } }
+    ],
     "alternatives": {}
   }
 ]
 
 Replace the example above with 3 real builds (performance, value, prebuilt) matching the user requirements. Ensure totalPrice roughly equals sum of component prices and stays within the ${budget} INR budget.
+
+IMPORTANT: "fpsEstimates" MUST contain exactly 6 games: GTA V, Red Dead Redemption 2, Valorant, Fortnite, Cyberpunk 2077, and Elden Ring. Provide realistic FPS values based on the GPU and CPU.
 
 SPECIAL RULES FOR THE "prebuilt" TYPE:
 - This CANNOT be static. You MUST choose a real pre-built PC available in India that EXACTLY fits the user's Rs.${budget} budget and ${purpose} purpose.
@@ -408,7 +417,7 @@ export async function fetchGeminiLaptops(
   })();
 
   const budgetMax = answers.budget || 100000;
-  const budgetCeiling = Math.round(budgetMax * 1.10); // 10% relaxation
+  const budgetCeiling = Math.round(budgetMax * 1.05); // only 5% relaxation
 
   const prompt = `You are an expert laptop recommender for the Indian market in 2025.
 
@@ -417,7 +426,7 @@ Generate exactly 3 laptop recommendations as a JSON array.
 ${(answers as any)._excludeModels ? `DO NOT recommend these models again: ${(answers as any)._excludeModels}` : ''}
 
 ═══════════════════════════════════════════════════════════
-STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 10% relaxation)
+STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 5% relaxation)
 Each requirement below is MANDATORY. Violating ANY non-budget requirement means that laptop is AUTOMATICALLY DISQUALIFIED and must be replaced.
 ═══════════════════════════════════════════════════════════
 
@@ -427,8 +436,9 @@ Step 2 - Primary Purpose: ${answers.purpose?.replace(/-/g, ' ').toUpperCase() ||
   The laptop MUST be suitable for this purpose. For gaming/streaming: dedicated GPU required. For ML/AI: CUDA-capable GPU required. For coding/student/office: integrated GPU is acceptable.
 
 Step 3 - Budget: Rs.${budgetMax} INR.
-  SOFT LIMIT with 10% relaxation: Maximum allowed price is Rs.${budgetCeiling}. Prefer laptops AT or BELOW Rs.${budgetMax}. You MAY go up to Rs.${budgetCeiling} ONLY if no good option exists below Rs.${budgetMax}.
-  HARD CEILING: Rs.${budgetCeiling}. Any laptop priced above Rs.${budgetCeiling} is DISQUALIFIED regardless of how good it is.
+  SOFT LIMIT with 5% relaxation: Maximum allowed price is Rs.${budgetCeiling}. All laptops MUST be priced AT or BELOW Rs.${budgetCeiling}.
+  HARD CEILING: Rs.${budgetCeiling}. Any laptop priced above Rs.${budgetCeiling} is IMMEDIATELY DISQUALIFIED — no exceptions, no matter how good it is.
+  IMPORTANT: Do NOT recommend expensive flagship laptops that cost 2x the budget. Stay within the price range.
 
 Step 4 - Display Type: ${displayHint}
 
@@ -525,7 +535,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
 }
 ]
 
-FINAL MANDATORY CHECK: Before returning, re-run the DISQUALIFICATION CHECKLIST above for EACH laptop. If any laptop fails any check, REPLACE IT with a compliant alternative. This is non-negotiable.
+FINAL MANDATORY CHECK: Before returning, re-run the DISQUALIFICATION CHECKLIST above for EACH laptop. If any laptop fails any check, REPLACE IT with a compliant alternative. ESPECIALLY verify that EVERY laptop price is <= Rs.${budgetCeiling}. This is non-negotiable.
 
 Replace the example with 3 REAL, CURRENT (2025) laptops. Return ONLY the JSON array.
 `;

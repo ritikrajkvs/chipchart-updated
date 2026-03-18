@@ -15,6 +15,8 @@ import {
   AnalysisInsight,
   LaptopRecommendation,
   LaptopStorePrice,
+  formatFullName,
+  formatDisplayName,
 } from '@/lib/recommendationEngine';
 import { fetchGeminiLaptops } from '@/lib/geminiApi';
 import { useBucketStore } from '@/store/bucketStore';
@@ -123,8 +125,13 @@ const LaptopResults = () => {
   const { addItem } = useBucketStore();
   const hasFetched = useRef(false);
 
+  // EARLY GUARD: if answers got wiped (refresh before persist hydrates), go back
+  // This MUST be before the useEffect to prevent crashes
+  const hasValidAnswers = !!answers.budget;
+
   useEffect(() => {
     if (hasFetched.current) return;
+    if (!hasValidAnswers) return; // don't fetch if no answers
     hasFetched.current = true;
 
     async function fetchLaptops() {
@@ -132,7 +139,7 @@ const LaptopResults = () => {
       setError(null);
       try {
         const cachedRecs = apiCache.get(answers);
-        if (cachedRecs) {
+        if (cachedRecs && cachedRecs.length > 0) {
           setRecommendations(cachedRecs);
           setInsights(generateLaptopInsights(cachedRecs, answers));
           if (cachedRecs[0]) setExpandedDeals(new Set([cachedRecs[0].laptop.id]));
@@ -140,25 +147,52 @@ const LaptopResults = () => {
           return;
         }
 
-        let recs = await fetchGeminiLaptops(answers);
+        const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
+        let validRecs: LaptopRecommendation[] = [];
+        let attempts = 0;
+        const maxAttempts = 3;
 
-        for (let i = 0; i < recs.length; i++) {
-          const rec = recs[i];
-          const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery, rec.laptop.brand, rec.laptop.price);
-          if (liveAmazonData && liveAmazonData.price) {
-            rec.laptop.lowestPrice = liveAmazonData.price;
-            rec.laptop.storePrices = [{ store: 'Amazon', price: liveAmazonData.price, inStock: liveAmazonData.inStock, url: liveAmazonData.url }];
-          } else {
-            rec.laptop.storePrices = [];
-            rec.laptop.lowestPrice = rec.laptop.price;
+        while (validRecs.length < 3 && attempts < maxAttempts) {
+          attempts++;
+          const excluded = validRecs.map(r => r.laptop.model).join(', ');
+          const answersForAI = attempts === 1 ? answers : { ...answers, _excludeModels: excluded } as any;
+          let batch = await fetchGeminiLaptops(answersForAI);
+
+          // Fetch live prices
+          for (let i = 0; i < batch.length; i++) {
+            const rec = batch[i];
+            const liveData = await fetchLiveAmazonPrice(rec.laptop.searchQuery, rec.laptop.brand, rec.laptop.model, rec.laptop.price);
+            if (liveData && liveData.price) {
+              rec.laptop.lowestPrice = liveData.price;
+              rec.laptop.storePrices = [{ store: 'Amazon', price: liveData.price, inStock: liveData.inStock, url: liveData.url }];
+            } else {
+              rec.laptop.storePrices = [];
+              rec.laptop.lowestPrice = rec.laptop.price;
+            }
+            if (i < batch.length - 1) await new Promise(r => setTimeout(r, 1500));
           }
-          if (i < recs.length - 1) await new Promise(r => setTimeout(r, 1500));
+
+          // Budget filter
+          const passed = batch.filter(rec => {
+            const price = rec.laptop.lowestPrice ?? rec.laptop.price;
+            if (price > budgetCeiling) {
+              console.warn(`[Budget] Dropping "${rec.laptop.model}" — ₹${price} > ₹${budgetCeiling}`);
+              return false;
+            }
+            return true;
+          });
+
+          validRecs.push(...passed);
+          if (passed.length === batch.length) break; // no drops — done
         }
 
-        apiCache.set(answers, recs);
-        setRecommendations(recs);
-        setInsights(generateLaptopInsights(recs, answers));
-        if (recs[0]) setExpandedDeals(new Set([recs[0].laptop.id]));
+        // Take exactly 3 (or fewer if we exhausted attempts)
+        const finalRecs = validRecs.slice(0, 3);
+        apiCache.set(answers, finalRecs);
+
+        setRecommendations(finalRecs);
+        setInsights(generateLaptopInsights(finalRecs, answers));
+        if (finalRecs[0]) setExpandedDeals(new Set([finalRecs[0].laptop.id]));
       } catch (err) {
         console.error("Failed to execute Gemini API", err);
         setError("Failed to generate Laptop recommendations. Please try again later.");
@@ -168,15 +202,7 @@ const LaptopResults = () => {
     }
     fetchLaptops();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const formatDisplayName = (brand: string, name: string) => {
-    if (!name || !brand) return name;
-    let cleanName = name.replace(/\([^)]+\)/g, '').trim();
-    const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
-    if (brandRegex.test(cleanName)) return cleanName.replace(brandRegex, '').trim();
-    return cleanName;
-  };
+  }, [hasValidAnswers]);
 
   const toggleDeals = (id: string) => {
     setExpandedDeals(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -188,23 +214,45 @@ const LaptopResults = () => {
   const handleLoadMore = async () => {
     setLoadingMore(true);
     try {
-      const answersWithExcludes = { ...answers, _excludeModels: recommendations.map(r => r.laptop.model).join(', ') } as any;
-      let newRecs = await fetchGeminiLaptops(answersWithExcludes);
+      const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
+      let validNew: LaptopRecommendation[] = [];
+      let attempts = 0;
 
-      for (let i = 0; i < newRecs.length; i++) {
-        const rec = newRecs[i];
-        const liveAmazonData = await fetchLiveAmazonPrice(rec.laptop.searchQuery, rec.laptop.brand, rec.laptop.price);
-        if (liveAmazonData && liveAmazonData.price) {
-          rec.laptop.lowestPrice = liveAmazonData.price;
-          rec.laptop.storePrices = [{ store: 'Amazon', price: liveAmazonData.price, inStock: liveAmazonData.inStock, url: liveAmazonData.url }];
-        } else {
-          rec.laptop.storePrices = [];
-          rec.laptop.lowestPrice = rec.laptop.price;
+      while (validNew.length < 3 && attempts < 3) {
+        attempts++;
+        const allExcluded = [...recommendations, ...validNew].map(r => r.laptop.model).join(', ');
+        const answersWithExcludes = { ...answers, _excludeModels: allExcluded } as any;
+        let batch = await fetchGeminiLaptops(answersWithExcludes);
+
+        for (let i = 0; i < batch.length; i++) {
+          const rec = batch[i];
+          const liveData = await fetchLiveAmazonPrice(rec.laptop.searchQuery, rec.laptop.brand, rec.laptop.model, rec.laptop.price);
+          if (liveData && liveData.price) {
+            rec.laptop.lowestPrice = liveData.price;
+            rec.laptop.storePrices = [{ store: 'Amazon', price: liveData.price, inStock: liveData.inStock, url: liveData.url }];
+          } else {
+            rec.laptop.storePrices = [];
+            rec.laptop.lowestPrice = rec.laptop.price;
+          }
+          if (i < batch.length - 1) await new Promise(r => setTimeout(r, 1500));
         }
-        if (i < newRecs.length - 1) await new Promise(r => setTimeout(r, 1500));
+
+        const passed = batch.filter(rec => {
+          const price = rec.laptop.lowestPrice ?? rec.laptop.price;
+          if (price > budgetCeiling) return false;
+          return true;
+        });
+
+        validNew.push(...passed);
+        if (passed.length === batch.length) break;
       }
 
-      const merged = [...recommendations, ...newRecs.map((rec, i) => ({ ...rec, laptop: { ...rec.laptop, id: `laptop-${Date.now()}-${i}` } }))];
+      const finalNew = validNew.slice(0, 3).map((rec, i) => ({
+        ...rec,
+        laptop: { ...rec.laptop, id: `laptop-${Date.now()}-${i}` }
+      }));
+
+      const merged = [...recommendations, ...finalNew];
       apiCache.set(answers, merged);
       setRecommendations(merged);
       setInsights(generateLaptopInsights(merged, answers));
@@ -216,10 +264,25 @@ const LaptopResults = () => {
   };
 
   const handleAddLaptopToBucket = (laptop: any) => {
-    addItem({ type: 'laptop', name: `${laptop.brand} ${formatDisplayName(laptop.brand, laptop.model)}`, price: laptop.lowestPrice ?? laptop.price, productData: laptop });
+    addItem({ type: 'laptop', name: formatFullName(laptop.brand, laptop.model), price: laptop.lowestPrice ?? laptop.price, productData: laptop });
   };
 
   // ─── Loading ───────────────────────────────────────────
+  if (!hasValidAnswers) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-5 max-w-md px-6">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
+            <RefreshCw className="h-7 w-7 text-accent" />
+          </div>
+          <h2 className="text-2xl font-bold font-heading">Session Expired</h2>
+          <p className="text-muted-foreground">Please complete the questionnaire again.</p>
+          <Button variant="accent" asChild><Link to="/questionnaire">Start Questionnaire</Link></Button>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -253,20 +316,6 @@ const LaptopResults = () => {
     );
   }
 
-  if (!answers.budget) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-5 max-w-md px-6">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
-            <RefreshCw className="h-7 w-7 text-accent" />
-          </div>
-          <h2 className="text-2xl font-bold font-heading">Session Expired</h2>
-          <p className="text-muted-foreground">Please complete the questionnaire again.</p>
-          <Button variant="accent" asChild><Link to="/questionnaire">Start Questionnaire</Link></Button>
-        </motion.div>
-      </div>
-    );
-  }
 
   // ─── Main Render ───────────────────────────────────────
   return (

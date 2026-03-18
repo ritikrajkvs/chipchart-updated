@@ -104,6 +104,45 @@ export interface LaptopRecommendation {
 export function generateAIExplanation(_builds: PCBuild[], _answers: QuestionnaireAnswers): string { return ''; }
 export function generateLaptopAIExplanation(_recommendations: LaptopRecommendation[], _answers: QuestionnaireAnswers): string { return ''; }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+// Strip HTML entities like &#x27; and decode common ones
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#\d+;/g, '') // strip remaining numeric entities
+    .replace(/&[a-zA-Z]+;/g, ''); // strip remaining named entities
+}
+
+export function formatFullName(brand: string, name: string): string {
+  if (!name || !brand) return name || brand || '';
+  let cleanName = decodeHtmlEntities(name).replace(/\([^)]+\)/g, '').trim();
+  // If it's a verbose Amazon title, take only before the first comma
+  if (cleanName.length > 80) {
+    cleanName = cleanName.split(/[,|]/, 1)[0].trim();
+  }
+  const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
+  if (brandRegex.test(cleanName)) return cleanName;
+  return `${brand} ${cleanName}`;
+}
+
+export function formatDisplayName(brand: string, name: string): string {
+  if (!name || !brand) return name || '';
+  let cleanName = decodeHtmlEntities(name).replace(/\([^)]+\)/g, '').trim();
+  // If it's a verbose Amazon title, take only before the first comma
+  if (cleanName.length > 80) {
+    cleanName = cleanName.split(/[,|]/, 1)[0].trim();
+  }
+  const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
+  if (brandRegex.test(cleanName)) return cleanName.replace(brandRegex, '').trim();
+  return cleanName;
+}
+
 // ─── Structured insight system ────────────────────────────────────────────────
 
 export interface AnalysisInsight {
@@ -203,6 +242,14 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
   const insights: AnalysisInsight[] = [];
   const budget = answers.budget || 100000;
 
+  // Helper: ensure names shown in insights are short and clean
+  const cleanName = (brand: string, model: string) => {
+    const full = formatFullName(brand, model);
+    // If model is a verbose Amazon title, take only the first meaningful chunk
+    const cleaned = full.split(/[,|–—]/, 1)[0].trim(); // take before first comma/dash
+    return cleaned.length > 50 ? cleaned.substring(0, 47) + '...' : cleaned;
+  };
+
   const sorted = [...recommendations].sort((a, b) => b.matchScore - a.matchScore);
   const top = sorted[0];
   const cheapest = [...recommendations].sort((a, b) =>
@@ -215,15 +262,15 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
   insights.push({
     type: 'winner',
     label: '🏆 Best Match For You',
-    value: `${top.laptop.brand} ${top.laptop.model}`,
-    detail: `${top.matchScore}% match · ${top.laptop.cpu} · ${top.laptop.display}`,
+    value: cleanName(top.laptop.brand, top.laptop.model),
+    detail: `${top.matchScore}% match · ${top.laptop.cpu}`,
   });
 
   // Estimated max price
   insights.push({
     type: 'deal',
     label: '💰 Expected Max Cost',
-    value: `₹${targetPrice.toLocaleString()} — ${cheapest.laptop.brand} ${cheapest.laptop.model}`,
+    value: `₹${targetPrice.toLocaleString()} — ${cleanName(cheapest.laptop.brand, cheapest.laptop.model)}`,
     detail: budget - targetPrice > 0
       ? `₹${(budget - targetPrice).toLocaleString()} under your budget based on max retail price`
       : 'Fits exactly within your budget',
@@ -234,7 +281,7 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
     insights.push({
       type: 'stat',
       label: '⚡ Raw Performance Leader',
-      value: `${bestPerf.laptop.brand} ${bestPerf.laptop.model}`,
+      value: cleanName(bestPerf.laptop.brand, bestPerf.laptop.model),
       detail: `Score ${bestPerf.laptop.performanceScore}/100 — strongest CPU/GPU combo in these results`,
     });
   }
@@ -278,7 +325,7 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
   // Lightest laptop
   const weights = recommendations
     .map(r => ({
-      label: `${r.laptop.brand} ${r.laptop.model}`,
+      label: formatFullName(r.laptop.brand, r.laptop.model),
       w: parseFloat((r.laptop.weight || '9').replace(/[^0-9.]/g, '')),
     }))
     .filter(w => !isNaN(w.w) && w.w > 0);
@@ -287,7 +334,7 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
     insights.push({
       type: 'tip',
       label: '🪶 Most Portable',
-      value: `${lightest.label} — ${lightest.w} kg`,
+      value: `${lightest.label.length > 40 ? lightest.label.substring(0, 37) + '...' : lightest.label} — ${lightest.w} kg`,
       detail: 'Best choice if you carry your laptop daily',
     });
   }
