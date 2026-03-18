@@ -3,6 +3,7 @@ import { QuestionnaireAnswers } from "@/store/questionnaireStore";
 import { PCBuild, LaptopRecommendation } from "./recommendationEngine";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const groqApiKey = import.meta.env.VITE_GROQ_API_KEY;
 
 if (!apiKey) {
   console.error("VITE_GEMINI_API_KEY is missing in .env");
@@ -12,41 +13,71 @@ const genAI = new GoogleGenerativeAI(apiKey || "");
 
 /*
 -------------------------------------
-Robust Model Fallback Wrapper
+Dual-Provider Fallback: Gemini 3.1 → Groq
+Only these two providers are used. No other models.
 -------------------------------------
 */
 
-const FALLBACK_MODELS = [
-  "gemini-3.1-flash-lite-preview",
-  "gemini-2.0-flash",        // Stable, high quota fallback
-  "gemini-1.5-flash",        // Widely available fallback
-];
+const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
-// Extract suggested retry delay (in ms) from the API error message
-function getRetryDelay(err: any): number {
-  try {
-    const match = err.message?.match(/retryDelay["\s:]+(\d+)s/);
-    if (match) return parseInt(match[1]) * 1000 + 1000;
-  } catch { };
-  return 5000;
+// Call Groq API via fetch (no SDK needed)
+async function callGroq(prompt: string): Promise<string> {
+  if (!groqApiKey) {
+    throw new Error("VITE_GROQ_API_KEY is missing in .env");
+  }
+
+  console.log(`[Groq API] Falling back to Groq (${GROQ_MODEL})...`);
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${groqApiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert product recommender. Always respond with ONLY a valid JSON array. No markdown, no code blocks, no explanation — just the raw JSON array."
+        },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 8192,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API error ${response.status}: ${errorText.substring(0, 200)}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content;
+
+  if (!text) {
+    throw new Error("Groq returned empty response");
+  }
+
+  console.log(`[Groq API] Success with model: ${GROQ_MODEL}`);
+  return text;
 }
 
-async function generateWithFallback(prompt: string) {
-  let lastError = null;
+// Main fallback wrapper — returns raw text from whichever provider succeeds
+async function generateWithFallback(prompt: string): Promise<string> {
+  let geminiError: any = null;
 
-  for (let i = 0; i < FALLBACK_MODELS.length; i++) {
-    const modelName = FALLBACK_MODELS[i];
+  // --- ATTEMPT 1: Gemini 3.1 ---
+  {
     let retries = 0;
-    const maxRetriesPerModel = 3; // Reduced: fail fast and try next model
+    const maxRetries = 3;
 
-    while (retries < maxRetriesPerModel) {
+    while (retries < maxRetries) {
       try {
         const model = genAI.getGenerativeModel({
-          model: modelName,
-          // NOTE: googleSearch tool has been REMOVED.
-          // It has near-zero free-tier rate limits on preview models,
-          // causing persistent 429 errors regardless of API key or account.
-          // The prompts still instruct the model to provide current pricing.
+          model: GEMINI_MODEL,
           generationConfig: {
             temperature: 0.2,
             topP: 0.9,
@@ -56,52 +87,50 @@ async function generateWithFallback(prompt: string) {
         });
 
         const result = await model.generateContent(prompt);
-        console.log(`[Gemini API] Success with model: ${modelName} after ${retries} retries`);
-        return result;
+        const text = result.response.text();
+        console.log(`[Gemini API] Success with model: ${GEMINI_MODEL} after ${retries} retries`);
+        return text;
 
       } catch (err: any) {
-        lastError = err;
+        geminiError = err;
 
         const is429 = err.message?.includes("429") || err.message?.includes("Too Many Requests");
         const isDailyLimit = err.message?.includes("Quota exceeded") || err.message?.includes("PerDay") || err.message?.includes("daily");
 
-        // If the model hit a daily limit (limit: 0), skip it immediately — no point waiting
         if (is429 && isDailyLimit) {
-          console.warn(`[Gemini API] ${modelName} hit DAILY quota. Skipping to next model.`);
-          break; // Break the while loop to move to the next model in the for loop
+          console.warn(`[Gemini API] ${GEMINI_MODEL} hit DAILY quota. Falling back to Groq.`);
+          break;
         }
 
-        // If it's a per-minute limit (RPM), wait and retry the SAME model
         if (is429) {
           retries++;
-          if (retries >= maxRetriesPerModel) {
-            console.warn(`[Gemini API] ${modelName} RPM rate limit exhausted after ${retries} retries. Skipping to next model.`);
-            break; // Move to the next model
+          if (retries >= maxRetries) {
+            console.warn(`[Gemini API] ${GEMINI_MODEL} rate limited after ${retries} retries. Falling back to Groq.`);
+            break;
           }
-          // Backoff: 3s, 7s, 15s, 20s, 30s
-          const delays = [3000, 7000, 15000, 20000, 30000];
-          const delay = delays[retries - 1] || 30000;
-          console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${delay}ms before retry ${retries}/${maxRetriesPerModel}...`);
+          const delays = [3000, 7000, 15000];
+          const delay = delays[retries - 1] || 15000;
+          console.warn(`[Gemini API] Rate limited. Waiting ${delay}ms before retry ${retries}/${maxRetries}...`);
           await new Promise(r => setTimeout(r, delay));
-          continue; // Retry the same model
+          continue;
         }
 
-        // For non-quota errors (404, 500, etc.) try the next model after a short delay
-        console.warn(`[Gemini API] Failed with ${modelName}:`, err.message?.substring(0, 120));
-        if (i < FALLBACK_MODELS.length - 1) {
-          await new Promise(r => setTimeout(r, 1000));
-        }
-        break; // Break the retry loop to move to the next model
+        // Non-429 error — fall through to Groq
+        console.warn(`[Gemini API] Failed with ${GEMINI_MODEL}:`, err.message?.substring(0, 120));
+        break;
       }
     }
   }
 
-  // All models exhausted
-  const is429 = (lastError as any)?.message?.includes("429");
-  if (is429) {
-    throw new Error("All Gemini models are currently rate-limited. Please wait a minute and try again.");
+  // --- ATTEMPT 2: Groq fallback ---
+  try {
+    return await callGroq(prompt);
+  } catch (groqErr: any) {
+    console.error("[Groq API] Also failed:", groqErr.message?.substring(0, 200));
+    throw new Error(
+      `Both AI providers failed.\nGemini: ${geminiError?.message?.substring(0, 100)}\nGroq: ${groqErr.message?.substring(0, 100)}`
+    );
   }
-  throw lastError;
 }
 
 
@@ -122,11 +151,11 @@ function extractJSON(text: string) {
 
   const start = text.indexOf("[");
   if (start === -1) {
-    console.error("Gemini Output Error - No JSON start bracket:", text);
+    console.error("AI Output Error - No JSON start bracket:", text);
     throw new Error("No JSON array returned by the AI.");
   }
 
-  // Count brackets to find the exact end of the JSON array, ignoring [1] citations safely
+  // Count brackets to find the exact end of the JSON array
   let depth = 0;
   let end = -1;
   let inString = false;
@@ -164,8 +193,8 @@ function extractJSON(text: string) {
   if (end === -1) end = text.lastIndexOf("]");
 
   if (start === -1 || end === -1 || start >= end) {
-    console.error("Gemini Output Error - Bad boundaries:", text);
-    throw new Error("Invalid JSON array boundaries returned from Gemini.");
+    console.error("AI Output Error - Bad boundaries:", text);
+    throw new Error("Invalid JSON array boundaries returned from AI.");
   }
 
   let jsonStr = text.slice(start, end + 1);
@@ -181,8 +210,8 @@ PC BUILD RECOMMENDER
 export async function fetchGeminiPCBuilds(
   answers: QuestionnaireAnswers
 ): Promise<PCBuild[]> {
-  if (!apiKey) {
-    throw new Error("Gemini API key missing");
+  if (!apiKey && !groqApiKey) {
+    throw new Error("No API keys configured (need VITE_GEMINI_API_KEY or VITE_GROQ_API_KEY)");
   }
 
   const purpose = answers.purpose || 'general';
@@ -273,19 +302,15 @@ Return ONLY the JSON array.`;
 
 
   try {
-    const result = await generateWithFallback(prompt);
+    const text = await generateWithFallback(prompt);
 
-    const response = await result.response;
+    const jsonText = extractJSON(text);
 
-    let text = response.text();
-
-    text = extractJSON(text);
-
-    const builds: PCBuild[] = JSON.parse(text);
+    const builds: PCBuild[] = JSON.parse(jsonText);
 
     return builds;
   } catch (error) {
-    console.error("Gemini PC Build Error:", error);
+    console.error("PC Build Error:", error);
     throw error;
   }
 }
@@ -299,8 +324,8 @@ LAPTOP RECOMMENDER
 export async function fetchGeminiLaptops(
   answers: QuestionnaireAnswers
 ): Promise<LaptopRecommendation[]> {
-  if (!apiKey) {
-    throw new Error("Gemini API key missing");
+  if (!apiKey && !groqApiKey) {
+    throw new Error("No API keys configured (need VITE_GEMINI_API_KEY or VITE_GROQ_API_KEY)");
   }
 
   const isGaming = ['gaming', 'streamer', 'content-creator', 'video-editing'].includes(answers.purpose || '');
@@ -359,7 +384,7 @@ PREFERRED GPU tiers for gaming/content (in order of preference):
 
 VALUE & PRICING RULES:
 - ALWAYS pick the best specs-to-price ratio — not just popular brands
-- REAL-TIME PRICING IS MANDATORY: You MUST use your Google Search tool to find the exact CURRENT price of the laptop on Amazon India or Flipkart today. Do NOT rely on training data.
+- Prices must reflect typical current Indian market pricing (Amazon India / Flipkart levels)
 - If a cheaper brand offers equivalent or better specs, pick the cheaper one
 - Every pick must be a real model available in India right now
 - Justify in the "pros" why you chose this over alternatives at the same price
@@ -368,11 +393,10 @@ VALUE & PRICING RULES:
 RULES:
 - "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
 - "searchQuery" MUST be an optimized search string combining ONLY the full name of the laptop, processor, graphics card, and RAM (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 16GB"). Do NOT include the specific model number or MPN in the searchQuery.
-- Use your Google Search capabilities to find the EXACT CURRENT price on Amazon/Flipkart. Do not hallucinate prices.
 - Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
 - storePrices MUST ONLY include exactly two stores: "Amazon" and "Flipkart". Do not include any other stores.
 - price = the standard MRP or average current price
-- lowestPrice = the HIGHEST real-time price found across Amazon and Flipkart right now (to simulate the maximum Expected Retail Cost for the user budget).
+- lowestPrice = the best (lowest) real price found across Amazon and Flipkart.
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.
@@ -395,13 +419,10 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "weight": "1.65 kg",
     "performanceScore": 92,
     "price": 119990,
-    "lowestPrice": 119990,
+    "lowestPrice": 109990,
     "storePrices": [
       { "store": "Amazon", "price": 119990, "inStock": true },
-      { "store": "Flipkart", "price": 109990, "inStock": true },
-      { "store": "Croma", "price": 114990, "inStock": true },
-      { "store": "Reliance Digital", "price": 116990, "inStock": false },
-      { "store": "Vijay Sales", "price": 112990, "inStock": true }
+      { "store": "Flipkart", "price": 109990, "inStock": true }
     ]
   },
   "matchScore": 94,
@@ -421,19 +442,15 @@ Replace this example with 3 REAL, CURRENT (2025) laptops matching the user requi
 
 
   try {
-    const result = await generateWithFallback(prompt);
+    const text = await generateWithFallback(prompt);
 
-    const response = await result.response;
+    const jsonText = extractJSON(text);
 
-    let text = response.text();
-
-    text = extractJSON(text);
-
-    const recommendations: LaptopRecommendation[] = JSON.parse(text);
+    const recommendations: LaptopRecommendation[] = JSON.parse(jsonText);
 
     return recommendations;
   } catch (error) {
-    console.error("Gemini Laptop Error:", error);
+    console.error("Laptop Error:", error);
     throw error;
   }
 }
