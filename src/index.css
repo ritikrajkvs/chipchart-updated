@@ -121,6 +121,29 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Theme-aware glassmorphism card */
+  .glass {
+    @apply bg-card/80 backdrop-blur-lg border border-border;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.03);
+  }
+  .dark .glass {
+    @apply bg-card/60;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.15);
+  }
+
+  /* Theme-aware surface tints */
+  .surface-raised {
+    @apply bg-secondary/60 border border-border;
+  }
+  .dark .surface-raised {
+    @apply bg-secondary/40 border-border;
+  }
+
+  /* Theme-aware divider */
+  .divider {
+    @apply border-border;
+  }
 }
 
 /* Scrollbar styling */
