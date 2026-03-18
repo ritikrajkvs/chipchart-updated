@@ -48,14 +48,14 @@ function buildStoreUrl(store: string, searchQuery: string): string {
 const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: DealPanelProps) => {
   const targetPrice = lowestPrice ?? Math.max(...storePrices.map(s => s.price));
   
-  // Prioritize Amazon and Flipkart, then sort the rest by price
+  // Prioritize Amazon the most, then Flipkart, then sort the rest by price
   const sorted = [...storePrices]
     .filter(s => s.store !== 'Vijay Sales')
     .sort((a, b) => {
-      const aPRIO = a.store === 'Amazon' || a.store === 'Flipkart' ? 1 : 0;
-      const bPRIO = b.store === 'Amazon' || b.store === 'Flipkart' ? 1 : 0;
+      const aPRIO = a.store === 'Amazon' ? 2 : (a.store === 'Flipkart' ? 1 : 0);
+      const bPRIO = b.store === 'Amazon' ? 2 : (b.store === 'Flipkart' ? 1 : 0);
       if (aPRIO !== bPRIO) return bPRIO - aPRIO; // Higher priority first
-      return b.price - a.price;
+      return a.price - b.price; // Sort from lowest to highest price (changed from b - a)
     });
 
   return (
