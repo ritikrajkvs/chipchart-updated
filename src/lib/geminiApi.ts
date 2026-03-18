@@ -16,9 +16,11 @@ Robust Model Fallback Wrapper
 -------------------------------------
 */
 
-const FALLBACK_MODELS = [         
-  "gemini-3.1-flash-lite-preview",  
-               
+const FALLBACK_MODELS = [
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro",
+  "gemini-3.1-flash-lite-preview",
 ];
 
 // Extract suggested retry delay (in ms) from the API error message

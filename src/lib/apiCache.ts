@@ -4,7 +4,7 @@ export const apiCache = {
   get: (keyObj: Record<string, any>) => {
     // Convert the user's answers into a string to use as a storage key
     const key = JSON.stringify(keyObj);
-    const cached = sessionStorage.getItem(`gemini_cache_${key}`);
+    const cached = localStorage.getItem(`gemini_cache_${key}`);
     
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
@@ -18,7 +18,7 @@ export const apiCache = {
   
   set: (keyObj: Record<string, any>, data: any) => {
     const key = JSON.stringify(keyObj);
-    sessionStorage.setItem(
+    localStorage.setItem(
       `gemini_cache_${key}`, 
       JSON.stringify({ data, timestamp: Date.now() })
     );
