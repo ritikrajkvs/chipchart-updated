@@ -33,3 +33,24 @@ export const apiCache = {
     );
   }
 };
+
+export const livePriceCache = {
+  get: (searchQuery: string) => {
+    const cached = localStorage.getItem(`live_price_${searchQuery}`);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Cache expires after 24 hours (24 * 60 * 60 * 1000 milliseconds)
+      if (Date.now() - timestamp < 86400000) {
+        return data;
+      }
+    }
+    return null;
+  },
+  
+  set: (searchQuery: string, data: any) => {
+    localStorage.setItem(
+      `live_price_${searchQuery}`, 
+      JSON.stringify({ data, timestamp: Date.now() })
+    );
+  }
+};

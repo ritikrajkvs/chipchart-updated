@@ -87,8 +87,11 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: De
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-emerald-400">
-                  Search
+                <span className={cn(
+                  "text-sm font-bold",
+                  store.store === 'Flipkart' ? "text-blue-400" : "text-emerald-400"
+                )}>
+                  {store.store === 'Flipkart' ? 'Check Live Price' : 'Search'}
                 </span>
                 <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -142,12 +145,30 @@ const LaptopResults = () => {
           if (liveAmazonData && liveAmazonData.price) {
             rec.laptop.price = liveAmazonData.price;
             rec.laptop.lowestPrice = liveAmazonData.price;
-            rec.laptop.storePrices = [{
-              store: 'Amazon',
-              price: liveAmazonData.price,
-              inStock: liveAmazonData.inStock,
-              url: liveAmazonData.url
-            }];
+            rec.laptop.storePrices = [
+              {
+                store: 'Amazon',
+                price: liveAmazonData.price,
+                inStock: liveAmazonData.inStock,
+                url: liveAmazonData.url
+              },
+              {
+                store: 'Flipkart',
+                price: liveAmazonData.price, // use same price for sorting
+                inStock: true,
+                url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
+              }
+            ];
+          } else {
+            rec.laptop.storePrices = [
+              {
+                store: 'Flipkart',
+                price: rec.laptop.price,
+                inStock: true,
+                url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
+              }
+            ];
+            rec.laptop.lowestPrice = rec.laptop.price;
           }
           // Small delay between calls to be safe with RapidAPI fallback rate limits
           if (i < recs.length - 1) {
@@ -218,12 +239,30 @@ const LaptopResults = () => {
         if (liveAmazonData && liveAmazonData.price) {
           rec.laptop.price = liveAmazonData.price;
           rec.laptop.lowestPrice = liveAmazonData.price;
-          rec.laptop.storePrices = [{
-            store: 'Amazon',
-            price: liveAmazonData.price,
-            inStock: liveAmazonData.inStock,
-            url: liveAmazonData.url
-          }];
+          rec.laptop.storePrices = [
+            {
+              store: 'Amazon',
+              price: liveAmazonData.price,
+              inStock: liveAmazonData.inStock,
+              url: liveAmazonData.url
+            },
+            {
+              store: 'Flipkart',
+              price: liveAmazonData.price,
+              inStock: true,
+              url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
+            }
+          ];
+        } else {
+          rec.laptop.storePrices = [
+            {
+              store: 'Flipkart',
+              price: rec.laptop.price,
+              inStock: true,
+              url: buildStoreUrl('Flipkart', rec.laptop.searchQuery)
+            }
+          ];
+          rec.laptop.lowestPrice = rec.laptop.price;
         }
         if (i < newRecs.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1500));

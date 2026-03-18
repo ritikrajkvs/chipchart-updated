@@ -1,4 +1,5 @@
 // Dual-provider live pricing: Apify (primary) → RapidAPI (fallback)
+import { livePriceCache } from './apiCache';
 
 interface LivePriceResult {
   store: string;
@@ -115,10 +116,17 @@ async function fetchViaRapidAPI(searchQuery: string): Promise<LivePriceResult | 
 // PUBLIC API — try Apify first, then fall back to RapidAPI
 // ──────────────────────────────────────────────
 export async function fetchLiveAmazonPrice(searchQuery: string): Promise<LivePriceResult | null> {
+  const cachedPrice = livePriceCache.get(searchQuery);
+  if (cachedPrice) {
+    console.log(`[LivePrice] Got price from Cache: ₹${cachedPrice.price}`);
+    return cachedPrice;
+  }
+
   // 1. Try Apify first
   const apifyResult = await fetchViaApify(searchQuery);
   if (apifyResult && apifyResult.price) {
     console.log(`[LivePrice] Got price from Apify: ₹${apifyResult.price}`);
+    livePriceCache.set(searchQuery, apifyResult);
     return apifyResult;
   }
 
@@ -127,6 +135,7 @@ export async function fetchLiveAmazonPrice(searchQuery: string): Promise<LivePri
   const rapidResult = await fetchViaRapidAPI(searchQuery);
   if (rapidResult && rapidResult.price) {
     console.log(`[LivePrice] Got price from RapidAPI: ₹${rapidResult.price}`);
+    livePriceCache.set(searchQuery, rapidResult);
     return rapidResult;
   }
 
