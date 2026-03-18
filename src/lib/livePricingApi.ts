@@ -1,5 +1,3 @@
-import { ApifyClient } from 'apify-client';
-
 export async function fetchLiveAmazonPrice(searchQuery: string) {
   const token = import.meta.env.VITE_APIFY_API_TOKEN;
   
@@ -7,8 +5,6 @@ export async function fetchLiveAmazonPrice(searchQuery: string) {
     console.warn("Missing VITE_APIFY_API_TOKEN. Live pricing via Apify is disabled.");
     return null;
   }
-
-  const client = new ApifyClient({ token });
 
   // Use the Amazon India search URL format with the product query
   const searchUrl = `https://www.amazon.in/s?k=${encodeURIComponent(searchQuery)}`;
@@ -25,16 +21,38 @@ export async function fetchLiveAmazonPrice(searchQuery: string) {
 
   try {
     console.log(`Starting Apify run for ${searchQuery}...`);
-    // Run the junglee actor and wait for it to finish (WARNING: THIS WILL TAKE TIME IN THE UI)
-    const run = await client.actor("junglee/amazon-crawler").call(input);
-
-    // Fetch actor results
-    const { items } = await client.dataset(run.defaultDatasetId).listItems();
     
+    // 1. Kick off the Apify actor and wait for it to finish (using waitForFinish parameter)
+    // Junglee's crawler can take 15-40 seconds, so we wait up to 60 seconds
+    const runResponse = await fetch(`https://api.apify.com/v2/acts/junglee~amazon-crawler/runs?token=${token}&waitForFinish=60`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+
+    if (!runResponse.ok) {
+      console.error(`Apify Actor failed to run: ${runResponse.statusText}`);
+      return null;
+    }
+
+    const runData = await runResponse.json();
+    const defaultDatasetId = runData.data.defaultDatasetId;
+
+    // 2. Fetch the actor results from the default dataset
+    const datasetResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${token}`);
+    
+    if (!datasetResponse.ok) {
+        console.error(`Failed to fetch dataset items: ${datasetResponse.statusText}`);
+        return null;
+    }
+
+    const items = await datasetResponse.json();
+    
+    // 3. Process the scraped items
     if (items && items.length > 0) {
       const topProduct = items[0] as any;
       
-      // Apify normally returns price, title, url, etc. Convert price to number.
+      // Apify normally returns price, title, url, etc.
       let cleanPrice = null;
       if (typeof topProduct.price === 'number') {
         cleanPrice = topProduct.price;
@@ -52,7 +70,7 @@ export async function fetchLiveAmazonPrice(searchQuery: string) {
     
     return null;
   } catch (error) {
-    console.error("Failed to fetch live Amazon price via Apify:", error);
+    console.error("Failed to fetch live Amazon price via Apify REST API:", error);
     return null;
   }
 }
