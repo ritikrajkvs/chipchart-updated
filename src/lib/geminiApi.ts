@@ -331,80 +331,163 @@ export async function fetchGeminiLaptops(
     throw new Error("No API keys configured (need VITE_GEMINI_API_KEY or VITE_GROQ_API_KEY)");
   }
 
-  const isGaming = ['gaming', 'streamer', 'content-creator', 'video-editing'].includes(answers.purpose || '');
+  const isGaming = ['gaming', 'streaming', 'content-creation', 'video-editing'].includes(answers.purpose || '');
 
   const brandConstraint = (() => {
     const brands = answers.laptopBrandPreference ?? [];
     const filtered = brands.filter(b => b !== 'no-preference');
     if (filtered.length === 0) return 'Any brand — pick the absolute best value for the budget.';
-    return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. Do not suggest any other brand.`;
+    return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. STRICTLY FORBIDDEN: Any brand not in this list. A laptop from a forbidden brand is an AUTOMATIC DISQUALIFICATION.`;
   })();
 
-  const screenSizeHint = answers.screenSize === 'compact' ? 'CRITICAL: MUST be 13-inch or 14-inch screen (DO NOT suggest 15-inch or larger).' : answers.screenSize === 'large' ? 'CRITICAL: MUST be 16-inch or larger screen.' : 'Standard 15-inch or 16-inch screen.';
-  const mobilityHint = answers.mobility === 'on-the-go' ? 'CRITICAL: MUST be highly portable, ultra-lightweight (under 1.6kg). DO NOT suggest heavy or bulky laptops (like gaming bricks) if this is selected. MUST have long battery life.' : answers.mobility === 'stationary' ? 'Weight & battery life are not critical. Can be a thick, heavy desktop replacement or high-performance gaming laptop.' : 'Moderate weight (1.7kg - 2.2kg) and average battery.';
-  const buildHint = answers.buildMaterial === 'premium-metal' ? 'MUST have a premium Aluminum or Magnesium chassis. Avoid mostly plastic bodies.' : 'Any build material is acceptable.';
-  const storageHint = answers.storageSize === 'massive' ? 'MUST have at least 2TB SSD.' : answers.storageSize === 'ample' ? 'MUST have at least 1TB SSD.' : 'At least 512GB SSD.';
-  const displayHint = answers.displayType === 'vibrant-oled' ? 'MUST have an OLED display. DO NOT suggest IPS/TN.' : answers.displayType === 'high-hertz' ? 'MUST have a high refresh rate (120Hz+) display.' : answers.displayType === 'touchscreen' ? 'MUST have a Touchscreen display.' : 'Standard display is acceptable.';
+  // ── STRICT display enforcement ──
+  const displayHint = (() => {
+    switch (answers.displayType) {
+      case 'vibrant-oled':
+        return 'MANDATORY: OLED display ONLY. FORBIDDEN: IPS, TN, VA panels. If the laptop does not have an OLED panel, it is DISQUALIFIED.';
+      case 'high-hertz':
+        return 'MANDATORY: High refresh rate display (120Hz or above). FORBIDDEN: 60Hz displays. If the laptop has a 60Hz panel, it is DISQUALIFIED.';
+      case 'touchscreen':
+        return 'MANDATORY: Touchscreen display. FORBIDDEN: Non-touch displays. If the laptop does not have a touchscreen, it is DISQUALIFIED.';
+      case 'standard-ips':
+      default:
+        return 'MANDATORY: Standard IPS or anti-glare LCD display. FORBIDDEN: OLED displays. If the laptop has an OLED panel, it is DISQUALIFIED. Stick to IPS/LCD only.';
+    }
+  })();
 
-  const prompt = `You are an expert laptop recommender for the Indian market in 2025. Find the BEST VALUE, LATEST GENERATION laptops — like a highly informed friend who knows every deal on the market.
+  // ── STRICT screen size enforcement ──
+  const screenSizeHint = (() => {
+    switch (answers.screenSize) {
+      case 'compact':
+        return 'MANDATORY: 13-inch or 14-inch screen ONLY. FORBIDDEN: 15-inch, 15.6-inch, 16-inch, or larger. Any laptop with screen >= 15 inches is DISQUALIFIED.';
+      case 'large':
+        return 'MANDATORY: 16-inch or larger screen ONLY. FORBIDDEN: 13-inch, 14-inch, 15-inch screens. Any laptop with screen < 16 inches is DISQUALIFIED.';
+      case 'standard':
+      default:
+        return 'MANDATORY: 15-inch, 15.6-inch, or 16-inch screen. FORBIDDEN: 13-inch, 14-inch (too small) and 17-inch+ (too large). Stay in the 15-16 inch range.';
+    }
+  })();
+
+  // ── STRICT portability enforcement ──
+  const mobilityHint = (() => {
+    switch (answers.mobility) {
+      case 'on-the-go':
+        return 'MANDATORY: Ultra-portable, under 1.6kg weight. MUST have long battery life (6+ hours). FORBIDDEN: Bulky gaming laptops over 2kg. If the laptop weighs more than 1.8kg, it is DISQUALIFIED.';
+      case 'stationary':
+        return 'Weight and battery are NOT constraints. Heavy desktop-replacement laptops (2.5kg+) are perfectly fine. Prioritize raw performance over portability.';
+      case 'balanced':
+      default:
+        return 'MANDATORY: Moderate weight between 1.5kg and 2.3kg. Should have 4-6 hours battery. FORBIDDEN: Ultra-heavy laptops over 2.5kg.';
+    }
+  })();
+
+  // ── STRICT build material enforcement ──
+  const buildHint = (() => {
+    switch (answers.buildMaterial) {
+      case 'premium-metal':
+        return 'MANDATORY: Aluminum or Magnesium alloy body. FORBIDDEN: Primarily plastic-bodied laptops. If the laptop has a mostly plastic chassis, it is DISQUALIFIED.';
+      case 'budget-plastic':
+        return 'Plastic body is perfectly acceptable. Focus on value — do not add premium for metal builds.';
+      case 'no-preference':
+      default:
+        return 'Any build material is acceptable. Choose based on best value.';
+    }
+  })();
+
+  // ── STRICT storage enforcement ──
+  const storageHint = (() => {
+    switch (answers.storageSize) {
+      case 'massive':
+        return 'MANDATORY: At least 2TB SSD storage. FORBIDDEN: Laptops with less than 2TB SSD. If the laptop has < 2TB SSD, it is DISQUALIFIED.';
+      case 'ample':
+        return 'MANDATORY: At least 1TB SSD storage. FORBIDDEN: Laptops with 512GB or less SSD. If the laptop has < 1TB SSD, it is DISQUALIFIED.';
+      case 'basic':
+      default:
+        return 'At least 256GB SSD. 512GB preferred.';
+    }
+  })();
+
+  const budgetMax = answers.budget || 100000;
+  const budgetCeiling = Math.round(budgetMax * 1.10); // 10% relaxation
+
+  const prompt = `You are an expert laptop recommender for the Indian market in 2025.
 
 Generate exactly 3 laptop recommendations as a JSON array.
 
 ${(answers as any)._excludeModels ? `DO NOT recommend these models again: ${(answers as any)._excludeModels}` : ''}
 
-CRITICAL USER REQUIREMENTS (THESE ARE ABSOLUTE STRICT CONSTRAINTS. YOU MUST FOLLOW ALL 9 STEPS EXACTLY IN THIS PRIORITIZED ORDER):
-Step 1 - Device Type: Laptop
-Step 2 - Primary Purpose: ${answers.purpose?.replace(/-/g, ' ').toUpperCase() || 'GENERAL'} requirements must be fully met.
-Step 3 - Budget Limit: Rs.${answers.budget || 100000} INR (HARD LIMIT — do not exceed under any circumstances).
-Step 4 - Screen Size: ${screenSizeHint}
-Step 5 - Display Quality: ${displayHint}
+═══════════════════════════════════════════════════════════
+STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 10% relaxation)
+Each requirement below is MANDATORY. Violating ANY non-budget requirement means that laptop is AUTOMATICALLY DISQUALIFIED and must be replaced.
+═══════════════════════════════════════════════════════════
+
+Step 1 - Device Type: Laptop (NOT a desktop, tablet, or 2-in-1 unless touchscreen is requested).
+
+Step 2 - Primary Purpose: ${answers.purpose?.replace(/-/g, ' ').toUpperCase() || 'GENERAL'}.
+  The laptop MUST be suitable for this purpose. For gaming/streaming: dedicated GPU required. For ML/AI: CUDA-capable GPU required. For coding/student/office: integrated GPU is acceptable.
+
+Step 3 - Budget: Rs.${budgetMax} INR.
+  SOFT LIMIT with 10% relaxation: Maximum allowed price is Rs.${budgetCeiling}. Prefer laptops AT or BELOW Rs.${budgetMax}. You MAY go up to Rs.${budgetCeiling} ONLY if no good option exists below Rs.${budgetMax}.
+  HARD CEILING: Rs.${budgetCeiling}. Any laptop priced above Rs.${budgetCeiling} is DISQUALIFIED regardless of how good it is.
+
+Step 4 - Display Type: ${displayHint}
+
+Step 5 - Screen Size: ${screenSizeHint}
+
 Step 6 - Portability & Weight: ${mobilityHint}
+
 Step 7 - Build Material: ${buildHint}
-Step 8 - Storage Capacity: ${storageHint}
+
+Step 8 - Storage: ${storageHint}
+
 Step 9 - Brand Preference: ${brandConstraint}
+
+═══════════════════════════════════════════════════════════
+DISQUALIFICATION CHECKLIST (you MUST run this for EACH laptop before including it):
+═══════════════════════════════════════════════════════════
+For each of your 3 picks, verify ALL of these. If ANY check fails, REPLACE that laptop:
+ □ Display type matches Step 4 exactly (e.g., if IPS required, it MUST NOT be OLED)
+ □ Screen size matches Step 5 exactly (e.g., if compact, screen MUST be 13-14 inches)
+ □ Weight matches Step 6 (e.g., if ultraportable, weight MUST be under 1.8kg)
+ □ Build material matches Step 7 (e.g., if metal required, body MUST be aluminum/magnesium)
+ □ Storage matches Step 8 (e.g., if 1TB+ required, SSD MUST be >= 1TB)
+ □ Brand matches Step 9 (e.g., if ASUS only, brand MUST be ASUS)
+ □ Price is <= Rs.${budgetCeiling}
 
 GENERATION PREFERENCE (apply intelligently based on budget):
 
 TIER 1 — ALWAYS PREFER these CPUs (latest gen, best value):
   - AMD: Ryzen 7000 (7xxxH/HS/U), Ryzen 8000 (8xxxH/HS/U), Ryzen AI 300
-  - Intel: 12th Gen, 13th Gen, 14th Gen Core i-series (including i3, i5, i7, i9), Intel Core Ultra 100/200
+  - Intel: 12th Gen, 13th Gen, 14th Gen Core i-series, Intel Core Ultra 100/200
   - Apple: M2, M3, M4 (any variant)
 
-TIER 2 — USE ONLY IF budget makes Tier 1 unavailable within the limit:
-  - AMD Ryzen 5000 series (5xxxH/U/Ryzen 3/5/7)
-  - Intel 11th Gen (Tiger Lake Core i3/i5/i7)
-  - NVIDIA RTX 30-series (RTX 3050, RTX 3060)
+TIER 2 — USE ONLY IF budget makes Tier 1 unavailable:
+  - AMD Ryzen 5000 series, Intel 11th Gen, NVIDIA RTX 30-series
 
-TIER 3 — LAST RESORT ONLY if absolutely no Tier 1 or Tier 2 option fits the budget:
-  - Intel 10th Gen, AMD Ryzen 4000, AMD Ryzen 3000 (Including Ryzen 3 / Intel i3)
-  - GTX 1650, GTX 1660, RTX 2060
-  - Only use these if no better laptop exists within the Rs.${answers.budget || 100000} hard limit
+TIER 3 — LAST RESORT:
+  - Intel 10th Gen, AMD Ryzen 4000/3000, GTX 1650/1660
 
 PREFERRED GPU tiers for gaming/content (in order of preference):
   1st: NVIDIA RTX 4050 / 4060 / 4070 / 4080 / 4090, AMD RX 7000-series
   2nd: RTX 3060 / 3070 / 3080 (if budget forces)
-  3rd: RTX 3050, GTX 1650 (only if truly no better option at the budget)
+  3rd: RTX 3050, GTX 1650 (only if truly no better option)
 
-VALUE & PRICING RULES:
-- ALWAYS pick the best specs-to-price ratio — not just popular brands
-- PRICING ACCURACY: Make an educated estimate of typical retail pricing in India context (Amazon/Flipkart). Overestimate rather than underestimate.
-- ABSOLUTE BUDGET ENFORCEMENT: Every laptop's "price" field MUST be LESS THAN OR EQUAL TO Rs.${answers.budget || 100000}. If a laptop costs even ₹1 more than the budget, DO NOT include it. Choose a cheaper variant or a different laptop instead.
-- If a cheaper brand offers equivalent or better specs, pick the cheaper one
+VALUE RULES:
+- Pick the best specs-to-price ratio — not just popular brands
 - Every pick must be a real model currently sold in India
-- Justify in the "pros" why you chose this over alternatives at the same price
-- Do NOT recommend a model that is overpriced relative to its generation
+- Justify in the "pros" why you chose this over alternatives
 
 RULES:
-- "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
-- "searchQuery" MUST BE HIGHLY OPTIMIZED FOR E-COMMERCE SEARCH APIS. It must contain the Brand, Model Family, CPU, and GPU. Do not include vague terms. Example: "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 laptop".
-- "price" = your best estimate of the historical MSRP. (Note: The frontend will override this with live API data).
-- "inStock" = set to true for now as a placeholder. (Note: The frontend will override this with live API data).
-- Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely.
+- "model" MUST NOT include the MPN. Keep it to the clean consumer name.
+- "searchQuery" MUST contain Brand, Model Family, CPU, and GPU for e-commerce search.
+- "price" = your best estimate of typical retail pricing in India. Overestimate rather than underestimate.
+- "inStock" = set to true as placeholder.
+- Do NOT generate URLs. Omit "url" and "buyLinks" fields entirely.
 - storePrices MUST include exactly two placeholder entries: "Amazon" and "Flipkart".
-- "lowestPrice" = set this EQUAL to "price" (same value). Do not fabricate discounts.
+- "lowestPrice" = set EQUAL to "price".
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
-CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.
+CRITICAL JSON RULE: NEVER use unescaped double-quotes inside string values. Use single quotes or describe dimensions textually (e.g., "15.6-inch" not "15.6\\"").
 
 Return ONLY this JSON array (no markdown, no code blocks):
 
@@ -419,7 +502,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "gpu": "NVIDIA RTX 4060 8GB",
     "ram": "16GB LPDDR5X",
     "storage": "1TB PCIe 4.0 NVMe SSD",
-    "display": "14-inch 2560x1600 165Hz OLED",
+    "display": "14-inch 2560x1600 165Hz IPS",
     "battery": "~8 hours",
     "weight": "1.65 kg",
     "performanceScore": 92,
@@ -431,7 +514,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
     ]
   },
   "matchScore": 94,
-  "pros": ["Latest Ryzen 8000 CPU — no compromises", "OLED display at this price is exceptional value"],
+  "pros": ["Latest Ryzen 8000 CPU", "IPS display matches user preference"],
   "cons": ["Gets warm under sustained GPU load"]${isGaming ? `,
   "fpsEstimates": [
     { "game": "Valorant", "fps": { "low": 300, "medium": 240, "high": 180, "ultra": 120 } },
@@ -442,9 +525,9 @@ Return ONLY this JSON array (no markdown, no code blocks):
 }
 ]
 
-FINAL CHECK before returning: Verify that EVERY laptop in your JSON array has a "price" that is <= Rs.${answers.budget || 100000}. If any laptop exceeds the budget, replace it with a cheaper one.
+FINAL MANDATORY CHECK: Before returning, re-run the DISQUALIFICATION CHECKLIST above for EACH laptop. If any laptop fails any check, REPLACE IT with a compliant alternative. This is non-negotiable.
 
-Replace this example with 3 REAL, CURRENT (2025) laptops matching the user requirements. Return ONLY the JSON array.
+Replace the example with 3 REAL, CURRENT (2025) laptops. Return ONLY the JSON array.
 `;
 
 
