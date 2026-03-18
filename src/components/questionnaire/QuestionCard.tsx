@@ -89,22 +89,23 @@ interface OptionCardProps {
 }
 
 export const OptionCard = ({ icon, title, description, selected, onClick, budgetWarning }: OptionCardProps) => {
+  // Warning visuals only show when the option is SELECTED and has a budget warning
+  const showWarning = selected && budgetWarning;
+
   return (
     <motion.button
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
         "p-4 rounded-xl border text-left transition-all w-full relative",
-        selected && budgetWarning
+        showWarning
           ? "border-amber-400 bg-amber-500/5 shadow-sm"
           : selected
           ? "border-accent bg-accent/5 shadow-sm"
-          : budgetWarning
-          ? "border-amber-300/50 bg-amber-500/[0.02] hover:border-amber-400/60"
           : "border-border bg-card hover:border-accent/30"
       )}
     >
-      {budgetWarning && (
+      {showWarning && (
         <div className="absolute -top-2.5 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-600">
           <AlertTriangle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
           <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">May increase budget</span>
@@ -113,9 +114,8 @@ export const OptionCard = ({ icon, title, description, selected, onClick, budget
       <div className="flex items-start gap-3">
         <div className={cn(
           "p-2 rounded-lg shrink-0 transition-colors",
-          selected && budgetWarning ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          showWarning ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
           : selected ? "bg-accent/10 text-accent"
-          : budgetWarning ? "bg-amber-500/5 text-amber-500"
           : "bg-secondary text-muted-foreground"
         )}>
           {icon}

@@ -526,14 +526,14 @@ const Questionnaire = () => {
         };
         const brands = [
           { value: 'no-preference', title: 'Best Available', desc: 'Pick the top-rated option for me', warn: false },
-          { value: 'apple', title: 'Apple', desc: 'MacBook Air / Pro', warn: bgt < 85000 },
+          { value: 'apple', title: 'Apple', desc: 'MacBook Air / Pro', warn: bgt < 50000 },
           { value: 'asus', title: 'ASUS', desc: 'ROG / Vivobook / Zenbook', warn: false },
           { value: 'lenovo', title: 'Lenovo', desc: 'ThinkPad / IdeaPad / Legion', warn: false },
           { value: 'dell', title: 'Dell', desc: 'XPS / Inspiron / Alienware', warn: false },
           { value: 'hp', title: 'HP', desc: 'Pavilion / Envy / Omen', warn: false },
           { value: 'acer', title: 'Acer', desc: 'Swift / Nitro / Predator', warn: false },
-          { value: 'msi', title: 'MSI', desc: 'Titan / Stealth / Raider', warn: bgt < 70000 },
-          { value: 'samsung', title: 'Samsung', desc: 'Galaxy Book Series', warn: bgt < 60000 },
+          { value: 'msi', title: 'MSI', desc: 'Titan / Stealth / Raider', warn: false },
+          { value: 'samsung', title: 'Samsung', desc: 'Galaxy Book Series', warn: false },
         ];
         return (
           <div className="space-y-3">
