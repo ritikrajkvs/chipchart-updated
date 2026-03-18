@@ -77,9 +77,9 @@ async function generateWithFallback(prompt: string) {
             console.warn(`[Gemini API] ${modelName} RPM rate limit exhausted after ${retries} retries. Skipping to next model.`);
             break; // Move to the next model
           }
-          // Backoff: 5s, 15s, 30s, 60s, 60s
-          const delays = [5000, 15000, 30000, 60000, 60000];
-          const delay = delays[retries - 1] || 60000;
+          // Backoff: 3s, 7s, 15s, 20s, 30s
+          const delays = [3000, 7000, 15000, 20000, 30000];
+          const delay = delays[retries - 1] || 30000;
           console.warn(`[Gemini API] Rate limited on ${modelName}. Waiting ${delay}ms before retry ${retries}/${maxRetriesPerModel}...`);
           await new Promise(r => setTimeout(r, delay));
           continue; // Retry the same model
