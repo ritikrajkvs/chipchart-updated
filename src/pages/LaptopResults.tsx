@@ -25,8 +25,6 @@ import { apiCache } from '@/lib/apiCache';
 const STORE_STYLES: Record<string, { color: string; bg: string; border: string }> = {
   'Amazon':          { color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/30' },
   'Flipkart':        { color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/30'   },
-  'Croma':           { color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/30'  },
-  'Reliance Digital':{ color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/30'    },
 };
 
 interface DealPanelProps {
@@ -42,8 +40,6 @@ function buildStoreUrl(store: string, searchQuery: string): string {
   switch (store) {
     case 'Amazon':          return `https://www.amazon.in/s?k=${q}&rh=n%3A1375424031`; // laptops category
     case 'Flipkart':        return `https://www.flipkart.com/search?q=${q}&otracker=search`;
-    case 'Croma':           return `https://www.croma.com/search/?q=${q}%3Arelevance`;
-    case 'Reliance Digital':return `https://www.reliancedigital.in/search?q=${q}`;
     default:                return `https://www.amazon.in/s?k=${q}&rh=n%3A1375424031`;
   }
 }
@@ -66,14 +62,9 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: De
       <div className="px-3 py-2 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />
-          <span className="text-xs font-semibold text-emerald-400">Best Deal</span>
+          <span className="text-xs font-semibold text-emerald-400">Estimated Price</span>
           <span className="text-xs font-bold text-emerald-300">₹{targetPrice.toLocaleString()}</span>
         </div>
-        {targetPrice < basePrice && (
-          <span className="text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5 font-semibold">
-            Save ₹{(basePrice - targetPrice).toLocaleString()}
-          </span>
-        )}
       </div>
       <div className="divide-y divide-border">
         {sorted.map((store) => {
@@ -87,34 +78,18 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: De
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn(
-                'flex items-center justify-between px-3 py-2.5 transition-colors group',
-                store.inStock
-                  ? 'hover:bg-secondary/60 cursor-pointer'
-                  : 'opacity-50 cursor-not-allowed pointer-events-none'
-              )}
-              onClick={(e) => !store.inStock && e.preventDefault()}
+              className="flex items-center justify-between px-3 py-2.5 transition-colors group hover:bg-secondary/60 cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-md border', style.bg, style.color, style.border)}>
                   {store.store}
                 </span>
-                {!store.inStock && (
-                  <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                    <AlertCircle className="h-3 w-3" /> Out of stock
-                  </span>
-                )}
               </div>
               <div className="flex items-center gap-2">
-                <span className={cn('text-sm font-bold', isTarget ? 'text-emerald-400' : '')}>
-                  ₹{store.price.toLocaleString()}
+                <span className="text-sm font-bold text-emerald-400">
+                  Search
                 </span>
-                {isTarget && (
-                  <span className="text-xs bg-emerald-500/20 text-emerald-400 rounded px-1 py-0.5 font-semibold">Lowest</span>
-                )}
-                {store.inStock && (
-                  <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
+                <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </a>
           );

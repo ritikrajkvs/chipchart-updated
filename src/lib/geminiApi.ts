@@ -254,8 +254,9 @@ Rules:
 - Builds must be: type 1 = performance, type 2 = value, type 3 = prebuilt
 - component "name" field must NOT include the brand name
 - component "sku" MUST be the precise Manufacturer Part Number (MPN) or global product code.
-- All components must be real products available in India
-- Prices must be ACCURATE to the CURRENT INDIAN MARKET (MSRP or typical retail price) in INR. Do not use outdated prices.
+- All components must be real products currently available in India
+- PRICING ACCURACY: Make an educated estimate of typical retail pricing in India context (Amazon/Flipkart). Overestimate rather than underestimate.
+- ABSOLUTE BUDGET ENFORCEMENT: The "totalPrice" of the build MUST be LESS THAN OR EQUAL TO Rs.${budget}. If a build exceeds the budget by even ₹1, DO NOT include it. Choose cheaper components instead.
 - GPU must be appropriate for ${resolution} gaming at the given budget
 - Strictly obey the CPU brand constraint stated above
 - CRITICAL JSON ESCAPING: Do NOT use raw double quotes (") inside any string values. For example, use '15-inch', NEVER '15"'. An unescaped quote will crash the JSON parser.
@@ -384,9 +385,10 @@ PREFERRED GPU tiers for gaming/content (in order of preference):
 
 VALUE & PRICING RULES:
 - ALWAYS pick the best specs-to-price ratio — not just popular brands
-- Prices must reflect typical current Indian market pricing (Amazon India / Flipkart levels)
+- PRICING ACCURACY: Make an educated estimate of typical retail pricing in India context (Amazon/Flipkart). Overestimate rather than underestimate.
+- ABSOLUTE BUDGET ENFORCEMENT: Every laptop's "price" field MUST be LESS THAN OR EQUAL TO Rs.${answers.budget || 100000}. If a laptop costs even ₹1 more than the budget, DO NOT include it. Choose a cheaper variant or a different laptop instead.
 - If a cheaper brand offers equivalent or better specs, pick the cheaper one
-- Every pick must be a real model available in India right now
+- Every pick must be a real model currently sold in India
 - Justify in the "pros" why you chose this over alternatives at the same price
 - Do NOT recommend a model that is overpriced relative to its generation
 
@@ -394,9 +396,11 @@ RULES:
 - "model" MUST NOT include the Manufacturer Part Number (MPN). Keep it to the clean consumer name (e.g., "ROG Zephyrus G14").
 - "searchQuery" MUST be an optimized search string combining ONLY the full name of the laptop, processor, graphics card, and RAM (e.g., "ASUS ROG Zephyrus G14 Ryzen 9 RTX 4060 16GB"). Do NOT include the specific model number or MPN in the searchQuery.
 - Do NOT generate URLs. Omit the "url" and "buyLinks" fields entirely in your response.
-- storePrices MUST ONLY include exactly two stores: "Amazon" and "Flipkart". Do not include any other stores.
-- price = the standard MRP or average current price
-- lowestPrice = the best (lowest) real price found across Amazon and Flipkart.
+- storePrices MUST include EXACTLY two stores: "Amazon" and "Flipkart". No other stores.
+- "inStock" MUST ALWAYS be set to true for every store entry. Do not guess stock status.
+- "price" = your best estimate of the typical selling price on Amazon/Flipkart.
+- "lowestPrice" = set this EQUAL to "price" (same value). Do not fabricate discounts.
+- Both storePrices entries should have the EXACT SAME price as the main "price" field.
 ${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: You MUST ensure the JSON is valid. NEVER use unescaped double-quotes (") or unescaped newlines inside string values. For example, use "15-inch display", NEVER "15" display". Replace inside quotes with single quotes.
@@ -418,11 +422,11 @@ Return ONLY this JSON array (no markdown, no code blocks):
     "battery": "~8 hours",
     "weight": "1.65 kg",
     "performanceScore": 92,
-    "price": 119990,
-    "lowestPrice": 109990,
+    "price": 94990,
+    "lowestPrice": 94990,
     "storePrices": [
-      { "store": "Amazon", "price": 119990, "inStock": true },
-      { "store": "Flipkart", "price": 109990, "inStock": true }
+      { "store": "Amazon", "price": 94990, "inStock": true },
+      { "store": "Flipkart", "price": 94990, "inStock": true }
     ]
   },
   "matchScore": 94,
@@ -436,6 +440,8 @@ Return ONLY this JSON array (no markdown, no code blocks):
   ]` : ''}
 }
 ]
+
+FINAL CHECK before returning: Verify that EVERY laptop in your JSON array has a "price" that is <= Rs.${answers.budget || 100000}. If any laptop exceeds the budget, replace it with a cheaper one.
 
 Replace this example with 3 REAL, CURRENT (2025) laptops matching the user requirements. Return ONLY the JSON array.
 `;
