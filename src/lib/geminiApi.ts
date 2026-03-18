@@ -299,6 +299,8 @@ SPECIAL RULES FOR THE "prebuilt" TYPE:
 - The prebuiltBuyLink should be a precise Amazon India product search URL for that exact model.
 - The components for the prebuilt should list what comes inside the chassis (CPU, GPU, RAM, SSD etc.) so users know exactly what they're getting.
 
+FINAL CHECK before returning: Verify that EVERY build in your JSON array has a "totalPrice" that is <= Rs.${budget}. If any build exceeds the budget, recalculate with cheaper parts.
+
 Return ONLY the JSON array.`;
 
 
