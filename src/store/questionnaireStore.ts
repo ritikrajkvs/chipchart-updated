@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type Purpose = 'gaming' | 'content-creation' | 'office' | 'ml-ai' | 'streaming' | 'coding' | 'student' | 'general';
 export type DeviceType = 'pc' | 'laptop';
-export type Resolution = '1080p' | '1440p' | '4k';
 
 export interface QuestionnaireAnswers {
   // Step 1, 2, 3 (Preserved)
@@ -29,7 +28,10 @@ export interface QuestionnaireAnswers {
 
   // Legacy/Other (Internal use)
   brandPreference: string[];
-  resolution: Resolution | null;
+
+  // Internal — used for "Load More" exclude lists (typed to avoid `as any`)
+  _excludeNames?: string;
+  _excludeModels?: string;
 }
 
 interface QuestionnaireState {
@@ -49,7 +51,6 @@ const initialAnswers: QuestionnaireAnswers = {
   purpose: null,
   budget: null,
   brandPreference: [],
-  resolution: null,
   // PC
   targetResolution: null,
   cpuBrandPreference: null,

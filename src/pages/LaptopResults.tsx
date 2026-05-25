@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -211,6 +211,18 @@ const LaptopResults = () => {
     setExpandedFps(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
+  // Close FPS popup on outside click
+  const fpsPopupRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (expandedFps.size > 0 && fpsPopupRef.current && !fpsPopupRef.current.contains(e.target as Node)) {
+        setExpandedFps(new Set());
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [expandedFps.size]);
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     try {
@@ -310,7 +322,14 @@ const LaptopResults = () => {
           </div>
           <h2 className="text-2xl font-bold font-heading">Something went wrong</h2>
           <p className="text-muted-foreground">{error || "No recommendations found."}</p>
-          <Button variant="outline" onClick={reset} asChild><Link to="/questionnaire"><RefreshCw className="h-4 w-4 mr-2" /> Try Again</Link></Button>
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" onClick={() => { hasFetched.current = false; setError(null); setLoading(true); window.location.reload(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Retry
+            </Button>
+            <Button variant="outline" onClick={reset} asChild>
+              <Link to="/questionnaire">Start Over</Link>
+            </Button>
+          </div>
         </motion.div>
       </div>
     );
@@ -527,6 +546,7 @@ const LaptopResults = () => {
                       <AnimatePresence>
                         {isFpsOpen && rec.fpsEstimates && rec.fpsEstimates.length > 0 && (
                           <motion.div
+                            ref={fpsPopupRef}
                             initial={{ opacity: 0, y: 8, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 8, scale: 0.95 }}

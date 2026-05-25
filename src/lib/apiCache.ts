@@ -1,24 +1,19 @@
 // src/lib/apiCache.ts
 
-// Clear old laptop cache entries on load (ensures fresh data for all users)
-(function clearOldLaptopCache() {
+function safeSetItem(key: string, value: string): void {
   try {
-    const keys = Object.keys(localStorage);
-    for (const key of keys) {
-      if (key.startsWith('gemini_cache_')) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const { timestamp } = JSON.parse(raw);
-          // Remove if older than 3 days
-          if (Date.now() - timestamp > 259200000) {
-            localStorage.removeItem(key);
-            console.log(`[Cache] Cleared old laptop cache: ${key.substring(0, 40)}...`);
-          }
-        }
-      }
-    }
-  } catch (e) { /* ignore */ }
-})();
+    localStorage.setItem(key, value);
+  } catch (e) {
+    // localStorage full — clear oldest cache entries and retry
+    console.warn('[Cache] Storage full, clearing old entries');
+    const keys = Object.keys(localStorage).filter(
+      k => k.startsWith('gemini_cache_') || k.startsWith('live_price_') || k.startsWith('pc_cache_')
+    );
+    keys.sort().slice(0, Math.ceil(keys.length / 2)).forEach(k => localStorage.removeItem(k));
+    try { localStorage.setItem(key, value); } catch { /* give up */ }
+  }
+}
+
 export const apiCache = {
   get: (keyObj: Record<string, any>) => {
     // Sort keys to ensure consistent cache lookups
@@ -35,6 +30,8 @@ export const apiCache = {
       if (Date.now() - timestamp < 259200000) {
         return data;
       }
+      // Expired — clean up
+      localStorage.removeItem(`gemini_cache_${key}`);
     }
     return null;
   },
@@ -46,7 +43,7 @@ export const apiCache = {
       return acc;
     }, {} as any);
     const key = JSON.stringify(sortedKey);
-    localStorage.setItem(
+    safeSetItem(
       `gemini_cache_${key}`, 
       JSON.stringify({ data, timestamp: Date.now() })
     );
@@ -61,19 +58,20 @@ export const livePriceCache = {
       if (Date.now() - timestamp < 86400000) {
         return data;
       }
+      localStorage.removeItem(`live_price_${searchQuery}`);
     }
     return null;
   },
   
   set: (searchQuery: string, data: any) => {
-    localStorage.setItem(
+    safeSetItem(
       `live_price_${searchQuery}`, 
       JSON.stringify({ data, timestamp: Date.now() })
     );
   }
 };
 
-// PC-specific cache — 7 days (604800000 ms)
+// PC-specific cache — 3 days (259200000 ms)
 export const pcCache = {
   get: (keyObj: Record<string, any>) => {
     const sortedKey = Object.keys(keyObj).sort().reduce((acc, k) => {
@@ -84,10 +82,11 @@ export const pcCache = {
     const cached = localStorage.getItem(`pc_cache_${key}`);
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
-      // 7 days
-      if (Date.now() - timestamp < 604800000) {
+      // 3 days
+      if (Date.now() - timestamp < 259200000) {
         return data;
       }
+      localStorage.removeItem(`pc_cache_${key}`);
     }
     return null;
   },
@@ -97,7 +96,7 @@ export const pcCache = {
       return acc;
     }, {} as any);
     const key = JSON.stringify(sortedKey);
-    localStorage.setItem(
+    safeSetItem(
       `pc_cache_${key}`,
       JSON.stringify({ data, timestamp: Date.now() })
     );

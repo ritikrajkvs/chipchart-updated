@@ -37,7 +37,7 @@ export const useBucketStore = create<BucketState>()(
           const existingItemIndex = state.items.findIndex(i => i.name === newItem.name);
           if (existingItemIndex >= 0) {
              const newItems = [...state.items];
-             newItems[existingItemIndex].quantity += 1;
+             newItems[existingItemIndex] = { ...newItems[existingItemIndex], quantity: newItems[existingItemIndex].quantity + 1 };
              return { items: newItems, isOpen: true }; // Open bucket on add
           }
           return { items: [...state.items, { ...newItem, id, quantity: 1 }], isOpen: true };

@@ -14,15 +14,16 @@ export interface LivePriceResult {
 
 // ── HELPERS ──────────────────────────────────
 
-/** Brand or model word found in title */
 function brandOk(title: string, brand: string, model: string = ''): boolean {
   if (!title) return false;
   const t = title.toLowerCase();
   if (brand && t.includes(brand.toLowerCase())) return true;
   if (model) {
-    for (const w of model.toLowerCase().split(/\s+/).filter(w => w.length > 3)) {
-      if (t.includes(w)) return true;
-    }
+    const words = model.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+    // Require at least 2 matching words for model-based match, or 1 if only 1 word
+    const matchCount = words.filter(w => t.includes(w)).length;
+    if (words.length === 1 && matchCount === 1) return true;
+    if (words.length > 1 && matchCount >= 2) return true;
   }
   return false;
 }
@@ -73,7 +74,9 @@ function isUnavailable(item: any): boolean {
   if (item.is_available === false) return true;
 
   // No price at all usually means unavailable
-  if (!item.price && !item.price_raw && item.price !== 0) return true;
+  if (!item.price && !item.price_raw) return true;
+  // Price of exactly 0 is also invalid
+  if (item.price === 0 && !item.price_raw) return true;
 
   return false;
 }
@@ -111,18 +114,18 @@ function isActualLaptop(title: string): boolean {
 /** Price sanity: 50%–140% of Gemini estimate */
 function priceSane(live: number, est: number): boolean {
   if (!est || est <= 0) return true;
-  return live >= est * 0.5 && live <= est * 1.4;
+  return live >= est * 0.4 && live <= est * 1.6;
 }
 
 // ── ScraperAPI core ──────────────────────────
 async function scrape(
-  query: string, brand: string, model: string, est: number, level: Level, checkBrand: boolean
+  query: string, brand: string, model: string, est: number, level: Level, checkBrand: boolean, productType: 'laptop' | 'pc' = 'laptop'
 ): Promise<LivePriceResult | null> {
-  const key = import.meta.env.VITE_SCRAPERAPI_KEY || '2dda48aa467fa879a9910a01baafddc4';
-  if (!key) return null;
+  const key = import.meta.env.VITE_SCRAPERAPI_KEY;
+  if (!key) { console.warn('[ScraperAPI] No API key configured (VITE_SCRAPERAPI_KEY)'); return null; }
   const url = `https://api.scraperapi.com/structured/amazon/search?api_key=${key}&query=${encodeURIComponent(query)}&country=in`;
   try {
-    console.log(`[ScraperAPI] ${level}${checkBrand ? '' : ' no-brand'}: ${query}`);
+    console.log(`[ScraperAPI] ${level}${checkBrand ? '' : ' no-brand'} [${productType}]: ${query}`);
     const res = await fetch(url);
     if (!res.ok) { console.warn(`[ScraperAPI] HTTP ${res.status}`); return null; }
     const json = await res.json();
@@ -137,8 +140,8 @@ async function scrape(
       // 1. Availability — comprehensive check
       if (isUnavailable(it)) { skipped.unavail++; continue; }
 
-      // 2. Must be a laptop (not accessory/desktop)
-      if (!isActualLaptop(title)) { skipped.notLaptop++; continue; }
+      // 2. Product type filter (only for laptops — skip for PC prebuilts)
+      if (productType === 'laptop' && !isActualLaptop(title)) { skipped.notLaptop++; continue; }
 
       // 3. Brand check
       if (checkBrand && !brandOk(title, brand, model)) { skipped.brand++; continue; }
@@ -200,10 +203,13 @@ export async function fetchPrebuiltPCPrice(
   const c = livePriceCache.get(`pc_${searchQuery}`);
   if (c) { if (!c.inStock) return null; return c; }
   const brand = searchQuery.split(' ')[0] || '';
-  let r = await scrape(searchQuery, brand, '', aiPrice, 'relaxed', false);
+  // Pass 'pc' productType to skip laptop filter
+  let r = await scrape(searchQuery, brand, '', aiPrice, 'relaxed', false, 'pc');
   if (r?.price) { livePriceCache.set(`pc_${searchQuery}`, r); return r; }
   await new Promise(ok => setTimeout(ok, 800));
-  r = await scrape(searchQuery, brand, '', aiPrice, 'relaxed', false);
+  // Use simplified query on retry instead of identical query
+  const simplified = searchQuery.split(' ').slice(0, 3).join(' ') + ' desktop pc';
+  r = await scrape(simplified, brand, '', aiPrice, 'relaxed', false, 'pc');
   if (r?.price) { livePriceCache.set(`pc_${searchQuery}`, r); return r; }
   return null;
 }

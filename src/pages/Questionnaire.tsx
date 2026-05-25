@@ -204,9 +204,9 @@ const Questionnaire = () => {
               >
                 <p className="text-sm text-muted-foreground">
                   <span className="font-semibold text-accent">Estimated Tier:</span>{' '}
-                  {answers.budget < 60000 ? 'Entry-Level (Ryzen 5 / i5 + GTX 1650)' :
+                  {answers.budget < 60000 ? 'Entry-Level (Ryzen 5 / i5 + RTX 3050)' :
                    answers.budget < 100000 ? 'Mid-Range (Ryzen 5 / i5 + RTX 4060)' :
-                   answers.budget < 150000 ? 'High-End (Ryzen 7 / i7 + RTX 4070)' :
+                   answers.budget < 150000 ? 'High-End (Ryzen 7 / i7 + RTX 4070 Super)' :
                    'Enthusiast (Ryzen 9 / i9 + RTX 4080/4090)'}
                 </p>
               </motion.div>

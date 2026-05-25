@@ -189,10 +189,17 @@ const PCResults = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent mx-auto mb-4" />
-          <p className="text-muted-foreground">Generating your perfect builds with AI...</p>
-        </div>
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6">
+          <div className="relative mx-auto w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
+            <Cpu className="absolute inset-0 m-auto h-6 w-6 text-accent animate-pulse" />
+          </div>
+          <div>
+            <p className="text-lg font-heading font-semibold text-foreground">Building your perfect PC</p>
+            <p className="text-sm text-muted-foreground mt-1">AI is selecting optimal components...</p>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -200,14 +207,21 @@ const PCResults = () => {
   if (error || builds.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <X className="h-10 w-10 text-destructive mx-auto mb-4" />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-5 max-w-md px-6">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <X className="h-7 w-7 text-destructive" />
+          </div>
           <h2 className="text-2xl font-bold font-heading">Something went wrong</h2>
-          <p className="text-muted-foreground max-w-md">{error || "No recommendations found."}</p>
-          <Button variant="outline" onClick={reset} asChild>
-            <Link to="/questionnaire"><RefreshCw className="h-4 w-4 mr-2" /> Try Again</Link>
-          </Button>
-        </div>
+          <p className="text-muted-foreground">{error || "No recommendations found."}</p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" onClick={() => { hasFetched.current = false; setError(null); setLoading(true); window.location.reload(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Retry
+            </Button>
+            <Button variant="outline" onClick={reset} asChild>
+              <Link to="/questionnaire">Start Over</Link>
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -320,9 +334,9 @@ const PCResults = () => {
     if (currentBuild.type === 'prebuilt') {
       addItem({
         type: 'prebuilt',
-        name: currentBuild.name,
-        price: currentBuild.totalPrice,
-        productData: currentBuild.components.cpu // Reference object
+        name: (currentBuild as any).prebuiltModel || currentBuild.name,
+        price: (currentBuild as any).livePrebuiltPrice || currentBuild.totalPrice,
+        productData: currentBuild.components
       });
     } else {
       // Add all individual components of the custom build
@@ -448,7 +462,7 @@ const PCResults = () => {
 
             return (
               <button
-                key={build.type}
+                key={`${build.type}-${index}`}
                 onClick={() => setSelectedBuild(index)}
                 className={cn(
                   "relative p-5 rounded-2xl border text-left transition-all duration-300 overflow-hidden group",
@@ -613,6 +627,16 @@ const PCResults = () => {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                            <a
+                              href={buildStoreUrl('Flipkart', `${component.brand} ${formatDisplayName(component.brand, component.name)}`)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Buy on Flipkart"
+                              className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-blue-500/10 text-muted-foreground hover:text-blue-500 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ShoppingCart className="h-3.5 w-3.5" />
                             </a>
                             <Button
                               variant="ghost"

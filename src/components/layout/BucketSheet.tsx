@@ -10,18 +10,25 @@ import {
 import { useBucketStore } from '@/store/bucketStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PCComponent, Laptop } from '@/lib/recommendationEngine';
+import { useToast } from '@/hooks/use-toast';
 
 export const BucketSheet = () => {
   const { items, isOpen, setIsOpen, removeItem, updateQuantity, getTotalPrice, clearBucket } = useBucketStore();
+  const { toast } = useToast();
 
   const handleCheckout = () => {
-    // In a real app, this would route to a checkout process
-    // For now, we'll just alert and clear the bucket since the user asked for functional buy links directly on components
-    alert("Checkout functionality would go here! Redirecting you to buy links...");
+    toast({
+      title: 'Build saved!',
+      description: `${items.length} item(s) worth ₹${getTotalPrice().toLocaleString()} — use the buy links to purchase from stores.`,
+    });
   };
 
   const getAmazonSearchUrl = (productName: string) => {
     return `https://www.amazon.in/s?k=${encodeURIComponent(productName)}`;
+  };
+
+  const getFlipkartSearchUrl = (productName: string) => {
+    return `https://www.flipkart.com/search?q=${encodeURIComponent(productName)}&otracker=search`;
   };
 
   return (
@@ -31,6 +38,11 @@ export const BucketSheet = () => {
           <SheetTitle className="flex items-center gap-2 font-heading text-xl">
             <ShoppingCart className="h-5 w-5 text-accent" />
             Your Build Bucket
+            {items.length > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+                {items.length}
+              </span>
+            )}
           </SheetTitle>
         </SheetHeader>
 
@@ -69,15 +81,25 @@ export const BucketSheet = () => {
                       </div>
                     </div>
                     
-                    {/* Direct Buy Link for the item */}
-                    <a 
-                      href={getAmazonSearchUrl(item.name)} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline mt-2 pt-2 border-t border-border w-full"
-                    >
-                      Search on Amazon <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border w-full">
+                      <a 
+                        href={getAmazonSearchUrl(item.name)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-500 hover:underline"
+                      >
+                        Amazon <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <span className="text-xs text-muted-foreground">·</span>
+                      <a 
+                        href={getFlipkartSearchUrl(item.name)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 hover:underline"
+                      >
+                        Flipkart <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))}

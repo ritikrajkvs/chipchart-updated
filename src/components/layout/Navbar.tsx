@@ -150,9 +150,11 @@ export const Navbar = () => {
               </Link>
             ))}
             <div className="flex gap-2 pt-2 pb-1">
-              <Button variant="outline" className="flex-1 gap-1.5 bg-accent/5 hover:bg-accent/10 border-accent/20 text-accent" asChild onClick={() => { handleDeviceNav('pc'); setIsOpen(false); }}>
-                <Link to="/questionnaire"><Cpu className="h-4 w-4" /> Start Build</Link>
-              </Button>
+              <Link to="/questionnaire" onClick={() => { handleDeviceNav('pc'); setIsOpen(false); }} className="flex-1">
+                <Button variant="outline" className="w-full gap-1.5 bg-accent/5 hover:bg-accent/10 border-accent/20 text-accent">
+                  <Cpu className="h-4 w-4" /> Start Build
+                </Button>
+              </Link>
             </div>
           </div>
         </motion.div>

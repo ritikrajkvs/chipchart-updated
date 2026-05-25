@@ -106,6 +106,10 @@ export function generateLaptopAIExplanation(_recommendations: LaptopRecommendati
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Strip HTML entities like &#x27; and decode common ones
 function decodeHtmlEntities(str: string): string {
   return str
@@ -126,7 +130,7 @@ export function formatFullName(brand: string, name: string): string {
   if (cleanName.length > 80) {
     cleanName = cleanName.split(/[,|]/, 1)[0].trim();
   }
-  const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
+  const brandRegex = new RegExp('^' + escapeRegex(brand) + '\\s+', 'i');
   if (brandRegex.test(cleanName)) return cleanName;
   return `${brand} ${cleanName}`;
 }
@@ -138,7 +142,7 @@ export function formatDisplayName(brand: string, name: string): string {
   if (cleanName.length > 80) {
     cleanName = cleanName.split(/[,|]/, 1)[0].trim();
   }
-  const brandRegex = new RegExp(`^${brand}\\s+`, 'i');
+  const brandRegex = new RegExp('^' + escapeRegex(brand) + '\\s+', 'i');
   if (brandRegex.test(cleanName)) return cleanName.replace(brandRegex, '').trim();
   return cleanName;
 }
@@ -158,9 +162,12 @@ export function generatePCInsights(builds: PCBuild[], answers: QuestionnaireAnsw
   const insights: AnalysisInsight[] = [];
   const budget = answers.budget || 100000;
 
-  const top = [...builds].sort((a, b) => b.performanceScore - a.performanceScore)[0];
-  const valueBuild = [...builds].sort((a, b) => (b.performanceScore / b.totalPrice) - (a.performanceScore / a.totalPrice))[0];
-  const cheapest = [...builds].sort((a, b) => a.totalPrice - b.totalPrice)[0];
+  let top = builds[0], valueBuild = builds[0], cheapest = builds[0];
+  for (const b of builds) {
+    if (b.performanceScore > top.performanceScore) top = b;
+    if ((b.performanceScore / b.totalPrice) > (valueBuild.performanceScore / valueBuild.totalPrice)) valueBuild = b;
+    if (b.totalPrice < cheapest.totalPrice) cheapest = b;
+  }
 
   // Best overall
   insights.push({
@@ -251,11 +258,11 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
   };
 
   const sorted = [...recommendations].sort((a, b) => b.matchScore - a.matchScore);
-  const top = sorted[0];
-  const cheapest = [...recommendations].sort((a, b) =>
-    (b.laptop.lowestPrice ?? b.laptop.price) - (a.laptop.lowestPrice ?? a.laptop.price)
-  )[0];
-  const bestPerf = [...recommendations].sort((a, b) => b.laptop.performanceScore - a.laptop.performanceScore)[0];
+  let top = sorted[0], cheapest = sorted[0], bestPerf = sorted[0];
+  for (const r of recommendations) {
+    if ((r.laptop.lowestPrice ?? r.laptop.price) < (cheapest.laptop.lowestPrice ?? cheapest.laptop.price)) cheapest = r;
+    if (r.laptop.performanceScore > bestPerf.laptop.performanceScore) bestPerf = r;
+  }
   const targetPrice = cheapest.laptop.lowestPrice ?? cheapest.laptop.price;
 
   // Top match
@@ -326,7 +333,7 @@ export function generateLaptopInsights(recommendations: LaptopRecommendation[], 
   const weights = recommendations
     .map(r => ({
       label: formatFullName(r.laptop.brand, r.laptop.model),
-      w: parseFloat((r.laptop.weight || '9').replace(/[^0-9.]/g, '')),
+      w: parseFloat((r.laptop.weight || '0').replace(/[^0-9.]/g, '')),
     }))
     .filter(w => !isNaN(w.w) && w.w > 0);
   if (weights.length > 1) {

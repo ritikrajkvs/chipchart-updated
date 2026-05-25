@@ -190,7 +190,10 @@ function extractJSON(text: string) {
   }
 
   // Fallback to last bracket if parsing failed
-  if (end === -1) end = text.lastIndexOf("]");
+  if (end === -1) {
+    console.warn('[JSON Extract] Bracket matching failed, using lastIndexOf fallback');
+    end = text.lastIndexOf("]");
+  }
 
   if (start === -1 || end === -1 || start >= end) {
     console.error("AI Output Error - Bad boundaries:", text);
@@ -199,6 +202,42 @@ function extractJSON(text: string) {
 
   let jsonStr = text.slice(start, end + 1);
   return jsonStr.replace(/,\s*([\]}])/g, '$1'); // Fix trailing commas
+}
+
+// ── Response validation ─────────────────────────────────────────────────────
+
+function validatePCBuild(build: any, budget: number): boolean {
+  if (!build || typeof build !== 'object') return false;
+  if (!build.components || typeof build.components !== 'object') return false;
+  if (!build.totalPrice || typeof build.totalPrice !== 'number') return false;
+  if (!build.type || !['performance', 'value', 'budget', 'prebuilt'].includes(build.type)) return false;
+  const requiredComponents = ['cpu', 'gpu', 'ram', 'ssd', 'psu', 'case', 'motherboard', 'cooler'];
+  for (const key of requiredComponents) {
+    const c = build.components[key];
+    if (!c || !c.brand || !c.name || typeof c.price !== 'number') return false;
+  }
+  // Clamp scores
+  build.performanceScore = Math.max(0, Math.min(100, build.performanceScore || 0));
+  if (build.bottleneck) build.bottleneck.percentage = Math.max(0, Math.min(100, build.bottleneck.percentage || 0));
+  return true;
+}
+
+function validateLaptopRec(rec: any): boolean {
+  if (!rec || typeof rec !== 'object') return false;
+  const l = rec.laptop;
+  if (!l || !l.model || !l.brand || !l.cpu || typeof l.price !== 'number') return false;
+  // Ensure IDs
+  if (!l.id) l.id = `laptop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  // Clamp scores
+  rec.matchScore = Math.max(0, Math.min(100, rec.matchScore || 0));
+  l.performanceScore = Math.max(0, Math.min(100, l.performanceScore || 0));
+  // Ensure storePrices array
+  if (!Array.isArray(l.storePrices)) l.storePrices = [];
+  // Ensure lowestPrice
+  if (!l.lowestPrice) l.lowestPrice = l.price;
+  // Ensure searchQuery
+  if (!l.searchQuery) l.searchQuery = `${l.brand} ${l.model} ${l.cpu} laptop`;
+  return true;
 }
 
 /*
@@ -248,7 +287,7 @@ User Requirements:
 - RAM: ${ram}
 - Case Form Factor: ${formFactor}
 - Aesthetic: ${style}
-${(answers as any)._excludeNames ? `- EXCLUDE these builds: ${(answers as any)._excludeNames}` : ''}
+${answers._excludeNames ? `- EXCLUDE these builds: ${answers._excludeNames}` : ''}
 
 Rules:
 - Builds must be: type 1 = performance, type 2 = value, type 3 = prebuilt
@@ -318,8 +357,21 @@ Return ONLY the JSON array.`;
 
     const jsonText = extractJSON(text);
 
-    const builds: PCBuild[] = JSON.parse(jsonText);
-
+    const rawBuilds: any[] = JSON.parse(jsonText);
+    const budget = answers.budget || 100000;
+    const budgetCeiling = Math.round(budget * 1.15);
+    const builds: PCBuild[] = rawBuilds.filter(b => {
+      if (!validatePCBuild(b, budget)) {
+        console.warn('[PC Validation] Dropping invalid build:', b?.name || 'unknown');
+        return false;
+      }
+      if (b.totalPrice > budgetCeiling) {
+        console.warn(`[PC Budget] Dropping "${b.name}" — ₹${b.totalPrice} > ₹${budgetCeiling}`);
+        return false;
+      }
+      return true;
+    });
+    if (builds.length === 0) throw new Error('AI returned no valid builds within budget.');
     return builds;
   } catch (error) {
     console.error("PC Build Error:", error);
@@ -359,8 +411,9 @@ export async function fetchGeminiLaptops(
       case 'touchscreen':
         return 'MANDATORY: Touchscreen display. FORBIDDEN: Non-touch displays. If the laptop does not have a touchscreen, it is DISQUALIFIED.';
       case 'standard-ips':
-      default:
         return 'MANDATORY: Standard IPS or anti-glare LCD display. FORBIDDEN: OLED displays. If the laptop has an OLED panel, it is DISQUALIFIED. Stick to IPS/LCD only.';
+      default:
+        return 'Any display type is acceptable. Choose the best display for the budget and purpose — IPS, OLED, or other.';
     }
   })();
 
@@ -416,14 +469,26 @@ export async function fetchGeminiLaptops(
     }
   })();
 
+  // ── STRICT RAM enforcement ──
+  const ramHint = (() => {
+    const purpose = answers.purpose || 'general';
+    if (['gaming', 'ml-ai', 'content-creation', 'streaming'].includes(purpose)) {
+      return 'MANDATORY: At least 16GB RAM. FORBIDDEN: 8GB RAM laptops for this use case. If the laptop has only 8GB RAM, it is DISQUALIFIED.';
+    }
+    if (['coding', 'student'].includes(purpose)) {
+      return 'At least 8GB RAM required. 16GB preferred for multitasking.';
+    }
+    return 'At least 8GB RAM.';
+  })();
+
   const budgetMax = answers.budget || 100000;
   const budgetCeiling = Math.round(budgetMax * 1.05); // only 5% relaxation
 
-  const prompt = `You are an expert laptop recommender for the Indian market in 2025.
+  const prompt = `You are an expert laptop recommender for the Indian market in ${new Date().getFullYear()}.
 
 Generate exactly 3 laptop recommendations as a JSON array.
 
-${(answers as any)._excludeModels ? `DO NOT recommend these models again: ${(answers as any)._excludeModels}` : ''}
+${answers._excludeModels ? `DO NOT recommend these models again: ${answers._excludeModels}` : ''}
 
 ═══════════════════════════════════════════════════════════
 STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 5% relaxation)
@@ -452,6 +517,8 @@ Step 8 - Storage: ${storageHint}
 
 Step 9 - Brand Preference: ${brandConstraint}
 
+Step 10 - RAM: ${ramHint}
+
 ═══════════════════════════════════════════════════════════
 DISQUALIFICATION CHECKLIST (you MUST run this for EACH laptop before including it):
 ═══════════════════════════════════════════════════════════
@@ -462,6 +529,7 @@ For each of your 3 picks, verify ALL of these. If ANY check fails, REPLACE that 
  □ Build material matches Step 7 (e.g., if metal required, body MUST be aluminum/magnesium)
  □ Storage matches Step 8 (e.g., if 1TB+ required, SSD MUST be >= 1TB)
  □ Brand matches Step 9 (e.g., if ASUS only, brand MUST be ASUS)
+ □ RAM matches Step 10
  □ Price is <= Rs.${budgetCeiling}
 
 GENERATION PREFERENCE (apply intelligently based on budget):
@@ -495,7 +563,7 @@ RULES:
 - Do NOT generate URLs. Omit "url" and "buyLinks" fields entirely.
 - storePrices MUST include exactly two placeholder entries: "Amazon" and "Flipkart".
 - "lowestPrice" = set EQUAL to "price".
-${isGaming ? `- Include "fpsEstimates" array with 4 games. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
+${isGaming ? `- Include "fpsEstimates" array with exactly 6 games: GTA V, Red Dead Redemption 2, Valorant, Fortnite, Cyberpunk 2077, and Elden Ring. Provide realistic FPS values for the laptop GPU. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: NEVER use unescaped double-quotes inside string values. Use single quotes or describe dimensions textually (e.g., "15.6-inch" not "15.6\\"").
 
@@ -537,7 +605,7 @@ Return ONLY this JSON array (no markdown, no code blocks):
 
 FINAL MANDATORY CHECK: Before returning, re-run the DISQUALIFICATION CHECKLIST above for EACH laptop. If any laptop fails any check, REPLACE IT with a compliant alternative. ESPECIALLY verify that EVERY laptop price is <= Rs.${budgetCeiling}. This is non-negotiable.
 
-Replace the example with 3 REAL, CURRENT (2025) laptops. Return ONLY the JSON array.
+Replace the example with 3 REAL, CURRENT (${new Date().getFullYear()}) laptops. Return ONLY the JSON array.
 `;
 
 
@@ -546,8 +614,15 @@ Replace the example with 3 REAL, CURRENT (2025) laptops. Return ONLY the JSON ar
 
     const jsonText = extractJSON(text);
 
-    const recommendations: LaptopRecommendation[] = JSON.parse(jsonText);
-
+    const rawRecs: any[] = JSON.parse(jsonText);
+    const recommendations: LaptopRecommendation[] = rawRecs.filter(r => {
+      if (!validateLaptopRec(r)) {
+        console.warn('[Laptop Validation] Dropping invalid rec:', r?.laptop?.model || 'unknown');
+        return false;
+      }
+      return true;
+    });
+    if (recommendations.length === 0) throw new Error('AI returned no valid laptop recommendations.');
     return recommendations;
   } catch (error) {
     console.error("Laptop Error:", error);
