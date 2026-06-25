@@ -73,7 +73,8 @@ export async function verifyLaptopStock(
     return result;
   }
 
-  // If Netlify function fails entirely, return not-found
+  // If Netlify function fails entirely, assume available (graceful degradation)
+  // The user can still click through to check manually
   const fallback: StockCheckResult = {
     amazon: {
       store: 'Amazon',
@@ -87,7 +88,7 @@ export async function verifyLaptopStock(
       inStock: false,
       url: `https://www.flipkart.com/search?q=${encodeURIComponent(searchQuery)}&otracker=search`,
     },
-    inStockAnywhere: false,
+    inStockAnywhere: true,  // Don't drop laptops just because the API is down
     lowestPrice: null,
   };
   return fallback;
@@ -111,7 +112,7 @@ export async function verifyPrebuiltStock(
   return {
     amazon: { store: 'Amazon', price: 0, inStock: false, url: `https://www.amazon.in/s?k=${encodeURIComponent(searchQuery)}` },
     flipkart: { store: 'Flipkart', price: 0, inStock: false, url: `https://www.flipkart.com/search?q=${encodeURIComponent(searchQuery)}` },
-    inStockAnywhere: false,
+    inStockAnywhere: true,
     lowestPrice: null,
   };
 }
