@@ -486,9 +486,16 @@ export async function fetchGeminiLaptops(
 
   const prompt = `You are an expert laptop recommender for the Indian market in ${new Date().getFullYear()}.
 
-Generate exactly 3 laptop recommendations as a JSON array.
+Generate exactly 6 laptop recommendations as a JSON array.
 
 ${answers._excludeModels ? `DO NOT recommend these models again: ${answers._excludeModels}` : ''}
+
+CRITICAL AVAILABILITY RULE:
+- ONLY recommend laptops that are CURRENTLY SOLD on Amazon.in or Flipkart.com in ${new Date().getFullYear()}
+- DO NOT suggest discontinued, out-of-production, or hard-to-find models
+- Prefer mainstream, popular models that are widely stocked by major Indian retailers
+- If unsure whether a model is available, choose a safer, more common alternative
+- Each laptop MUST be a real product that a user can buy TODAY on Amazon India or Flipkart
 
 ═══════════════════════════════════════════════════════════
 STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 5% relaxation)
@@ -559,9 +566,8 @@ RULES:
 - "model" MUST NOT include the MPN. Keep it to the clean consumer name.
 - "searchQuery" MUST contain Brand, Model Family, CPU, and GPU for e-commerce search.
 - "price" = your best estimate of typical retail pricing in India. Overestimate rather than underestimate.
-- "inStock" = set to true as placeholder.
 - Do NOT generate URLs. Omit "url" and "buyLinks" fields entirely.
-- storePrices MUST include exactly two placeholder entries: "Amazon" and "Flipkart".
+- storePrices = set to empty array []. Real prices will be fetched live.
 - "lowestPrice" = set EQUAL to "price".
 ${isGaming ? `- Include "fpsEstimates" array with exactly 6 games: GTA V, Red Dead Redemption 2, Valorant, Fortnite, Cyberpunk 2077, and Elden Ring. Provide realistic FPS values for the laptop GPU. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 

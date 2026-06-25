@@ -22,7 +22,7 @@ import { fetchGeminiLaptops } from '@/lib/geminiApi';
 import { useBucketStore } from '@/store/bucketStore';
 import { cn } from '@/lib/utils';
 import { apiCache } from '@/lib/apiCache';
-import { fetchLiveAmazonPrice } from '@/lib/livePricingApi';
+import { verifyLaptopStock } from '@/lib/livePricingApi';
 
 // ─── Store config ──────────────────────────────────────────
 const STORE_STYLES: Record<string, { color: string; bg: string; border: string; hoverBg: string }> = {
@@ -49,21 +49,24 @@ interface DealPanelProps {
 }
 
 const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: DealPanelProps) => {
-  const targetPrice = lowestPrice ?? Math.max(...storePrices.map(s => s.price), basePrice);
+  const targetPrice = lowestPrice ?? basePrice;
 
-  const allStores = [...storePrices];
-  if (!allStores.find(s => s.store === 'Flipkart')) {
-    allStores.push({ store: 'Flipkart' as any, price: basePrice, inStock: true, url: buildStoreUrl('Flipkart', storeSearchQuery) });
-  }
-
-  const sorted = allStores
-    .filter(s => s.store !== 'Vijay Sales')
+  const sorted = [...storePrices]
+    .filter(s => s.store === 'Amazon' || s.store === 'Flipkart')
     .sort((a, b) => {
       const aPRIO = a.store === 'Amazon' ? 2 : (a.store === 'Flipkart' ? 1 : 0);
       const bPRIO = b.store === 'Amazon' ? 2 : (b.store === 'Flipkart' ? 1 : 0);
       if (aPRIO !== bPRIO) return bPRIO - aPRIO;
       return a.price - b.price;
     });
+
+  // If no stores have data, add search links for both
+  if (sorted.length === 0) {
+    sorted.push(
+      { store: 'Amazon' as any, price: basePrice, inStock: false, url: buildStoreUrl('Amazon', storeSearchQuery) },
+      { store: 'Flipkart' as any, price: basePrice, inStock: false, url: buildStoreUrl('Flipkart', storeSearchQuery) }
+    );
+  }
 
   return (
     <div className="mt-3 rounded-xl border border-border bg-secondary/30 dark:bg-secondary/20 overflow-hidden">
@@ -79,8 +82,7 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: De
       <div className="divide-y divide-border">
         {sorted.map((store) => {
           const style = STORE_STYLES[store.store] ?? STORE_STYLES['Amazon'];
-          const href = buildStoreUrl(store.store, storeSearchQuery);
-          const isFlipkart = store.store === 'Flipkart';
+          const href = store.url || buildStoreUrl(store.store, storeSearchQuery);
           return (
             <a
               key={store.store}
@@ -93,14 +95,20 @@ const DealPanel = ({ storePrices, lowestPrice, basePrice, storeSearchQuery }: De
                 <span className={cn('text-xs font-bold px-2.5 py-1 rounded-lg border', style.bg, style.color, style.border)}>
                   {store.store}
                 </span>
-                {!isFlipkart && store.price > 0 && (
+                {store.inStock && store.price > 0 ? (
                   <span className="text-sm font-semibold text-foreground">₹{store.price.toLocaleString()}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Check availability</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className={cn("text-xs font-semibold", isFlipkart ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400")}>
-                  {isFlipkart ? 'Check Live Price' : 'View on Amazon'}
-                </span>
+                {store.inStock ? (
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <Check className="h-3 w-3" /> In Stock
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">View on {store.store}</span>
+                )}
                 <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </a>
@@ -131,7 +139,7 @@ const LaptopResults = () => {
 
   useEffect(() => {
     if (hasFetched.current) return;
-    if (!hasValidAnswers) return; // don't fetch if no answers
+    if (!hasValidAnswers) return;
     hasFetched.current = true;
 
     async function fetchLaptops() {
@@ -150,43 +158,49 @@ const LaptopResults = () => {
         const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
         let validRecs: LaptopRecommendation[] = [];
         let attempts = 0;
-        const maxAttempts = 3;
+        const maxAttempts = 2;
 
         while (validRecs.length < 3 && attempts < maxAttempts) {
           attempts++;
           const excluded = validRecs.map(r => r.laptop.model).join(', ');
           const answersForAI = attempts === 1 ? answers : { ...answers, _excludeModels: excluded } as any;
+
+          // 1. Get 6 candidates from AI
           let batch = await fetchGeminiLaptops(answersForAI);
 
-          // Fetch live prices
+          // 2. Verify stock for all candidates in parallel
+          const stockResults = await Promise.all(
+            batch.map(rec => verifyLaptopStock(rec.laptop.searchQuery, rec.laptop.price))
+          );
+
+          // 3. Filter to only in-stock laptops and attach real prices
           for (let i = 0; i < batch.length; i++) {
             const rec = batch[i];
-            const liveData = await fetchLiveAmazonPrice(rec.laptop.searchQuery, rec.laptop.brand, rec.laptop.model, rec.laptop.price);
-            if (liveData && liveData.price) {
-              rec.laptop.lowestPrice = liveData.price;
-              rec.laptop.storePrices = [{ store: 'Amazon', price: liveData.price, inStock: liveData.inStock, url: liveData.url }];
-            } else {
-              rec.laptop.storePrices = [];
-              rec.laptop.lowestPrice = rec.laptop.price;
-            }
-            if (i < batch.length - 1) await new Promise(r => setTimeout(r, 1500));
-          }
+            const stock = stockResults[i];
 
-          // Budget filter
-          const passed = batch.filter(rec => {
-            const price = rec.laptop.lowestPrice ?? rec.laptop.price;
+            if (!stock.inStockAnywhere) {
+              console.warn(`[Stock] Dropping "${rec.laptop.model}" — not in stock on Amazon or Flipkart`);
+              continue;
+            }
+
+            // Attach real store prices
+            rec.laptop.storePrices = [stock.amazon, stock.flipkart]
+              .filter(s => s.inStock && s.price > 0)
+              .map(s => ({ store: s.store, price: s.price, inStock: true, url: s.url }));
+            rec.laptop.lowestPrice = stock.lowestPrice ?? rec.laptop.price;
+
+            // Budget filter
+            const price = rec.laptop.lowestPrice;
             if (price > budgetCeiling) {
               console.warn(`[Budget] Dropping "${rec.laptop.model}" — ₹${price} > ₹${budgetCeiling}`);
-              return false;
+              continue;
             }
-            return true;
-          });
 
-          validRecs.push(...passed);
-          if (passed.length === batch.length) break; // no drops — done
+            validRecs.push(rec);
+          }
         }
 
-        // Take exactly 3 (or fewer if we exhausted attempts)
+        // Take top 3
         const finalRecs = validRecs.slice(0, 3);
         apiCache.set(answers, finalRecs);
 
@@ -227,36 +241,34 @@ const LaptopResults = () => {
     setLoadingMore(true);
     try {
       const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
-      let validNew: LaptopRecommendation[] = [];
-      let attempts = 0;
+      const allExcluded = recommendations.map(r => r.laptop.model).join(', ');
+      const answersWithExcludes = { ...answers, _excludeModels: allExcluded } as any;
 
-      while (validNew.length < 3 && attempts < 3) {
-        attempts++;
-        const allExcluded = [...recommendations, ...validNew].map(r => r.laptop.model).join(', ');
-        const answersWithExcludes = { ...answers, _excludeModels: allExcluded } as any;
-        let batch = await fetchGeminiLaptops(answersWithExcludes);
+      // 1. Get 6 new candidates from AI
+      let batch = await fetchGeminiLaptops(answersWithExcludes);
 
-        for (let i = 0; i < batch.length; i++) {
-          const rec = batch[i];
-          const liveData = await fetchLiveAmazonPrice(rec.laptop.searchQuery, rec.laptop.brand, rec.laptop.model, rec.laptop.price);
-          if (liveData && liveData.price) {
-            rec.laptop.lowestPrice = liveData.price;
-            rec.laptop.storePrices = [{ store: 'Amazon', price: liveData.price, inStock: liveData.inStock, url: liveData.url }];
-          } else {
-            rec.laptop.storePrices = [];
-            rec.laptop.lowestPrice = rec.laptop.price;
-          }
-          if (i < batch.length - 1) await new Promise(r => setTimeout(r, 1500));
-        }
+      // 2. Verify stock for all in parallel
+      const stockResults = await Promise.all(
+        batch.map(rec => verifyLaptopStock(rec.laptop.searchQuery, rec.laptop.price))
+      );
 
-        const passed = batch.filter(rec => {
-          const price = rec.laptop.lowestPrice ?? rec.laptop.price;
-          if (price > budgetCeiling) return false;
-          return true;
-        });
+      // 3. Filter to in-stock only
+      const validNew: LaptopRecommendation[] = [];
+      for (let i = 0; i < batch.length; i++) {
+        const rec = batch[i];
+        const stock = stockResults[i];
 
-        validNew.push(...passed);
-        if (passed.length === batch.length) break;
+        if (!stock.inStockAnywhere) continue;
+
+        rec.laptop.storePrices = [stock.amazon, stock.flipkart]
+          .filter(s => s.inStock && s.price > 0)
+          .map(s => ({ store: s.store, price: s.price, inStock: true, url: s.url }));
+        rec.laptop.lowestPrice = stock.lowestPrice ?? rec.laptop.price;
+
+        const price = rec.laptop.lowestPrice;
+        if (price > budgetCeiling) continue;
+
+        validNew.push(rec);
       }
 
       const finalNew = validNew.slice(0, 3).map((rec, i) => ({
@@ -510,7 +522,7 @@ const LaptopResults = () => {
                       {hasLivePrice ? (
                         <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-                          Live Amazon Price
+                          Verified In-Stock Price
                         </span>
                       ) : (
                         <span className="text-amber-600 dark:text-amber-400/80">⚡ AI Estimated · Verify on store</span>
