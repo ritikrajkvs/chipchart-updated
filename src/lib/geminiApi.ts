@@ -13,12 +13,14 @@ const genAI = new GoogleGenerativeAI(apiKey || "");
 
 /*
 -------------------------------------
-Dual-Provider Fallback: Gemini 3.1 → Groq
-Only these two providers are used. No other models.
+Dual-Provider Fallback: Gemini → Groq
+Gemini 2.5 Flash used for grounded (Google Search) calls.
+Gemini 3.1 Flash Lite used for non-grounded fallback.
 -------------------------------------
 */
 
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const GEMINI_GROUNDED_MODEL = "gemini-2.5-flash";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // Call Groq API via fetch (no SDK needed)
@@ -62,6 +64,44 @@ async function callGroq(prompt: string): Promise<string> {
   }
 
   console.log(`[Groq API] Success with model: ${GROQ_MODEL}`);
+  return text;
+}
+
+// Google Search grounded generation — Gemini searches the web before answering
+async function generateWithGrounding(prompt: string): Promise<string> {
+  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY required for grounded search');
+
+  console.log(`[Gemini Grounded] Searching web with ${GEMINI_GROUNDED_MODEL}...`);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_GROUNDED_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 8192,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini grounded API error ${response.status}: ${errText.substring(0, 200)}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts
+    ?.map((p: any) => p.text || '')
+    .join('') || '';
+
+  if (!text) throw new Error('Gemini grounded returned empty response');
+
+  console.log(`[Gemini Grounded] Success — received ${text.length} chars`);
   return text;
 }
 
@@ -486,16 +526,19 @@ export async function fetchGeminiLaptops(
 
   const prompt = `You are an expert laptop recommender for the Indian market in ${new Date().getFullYear()}.
 
-Generate exactly 6 laptop recommendations as a JSON array.
+IMPORTANT: You MUST use Google Search to look up REAL laptops currently listed on Amazon.in and Flipkart.com.
+Search for: "${answers.purpose?.replace(/-/g, ' ')} laptop under ${budgetMax} site:amazon.in" and "${answers.purpose?.replace(/-/g, ' ')} laptop under ${budgetMax} site:flipkart.com"
+
+Generate exactly 6 laptop recommendations as a JSON array. Every laptop MUST be a real product you found on Amazon.in or Flipkart.com with a real current price.
 
 ${answers._excludeModels ? `DO NOT recommend these models again: ${answers._excludeModels}` : ''}
 
 CRITICAL AVAILABILITY RULE:
-- ONLY recommend laptops that are CURRENTLY SOLD on Amazon.in or Flipkart.com in ${new Date().getFullYear()}
-- DO NOT suggest discontinued, out-of-production, or hard-to-find models
-- Prefer mainstream, popular models that are widely stocked by major Indian retailers
-- If unsure whether a model is available, choose a safer, more common alternative
-- Each laptop MUST be a real product that a user can buy TODAY on Amazon India or Flipkart
+- SEARCH Amazon.in and Flipkart.com for real laptops matching the criteria below
+- ONLY include laptops that are CURRENTLY LISTED and IN STOCK on these stores
+- Use the ACTUAL PRICE from the store listing, not an estimate
+- Every laptop MUST be verified as available to purchase RIGHT NOW
+- If you cannot verify a laptop is currently available, DO NOT include it
 
 ═══════════════════════════════════════════════════════════
 STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 5% relaxation)
@@ -565,10 +608,10 @@ VALUE RULES:
 RULES:
 - "model" MUST NOT include the MPN. Keep it to the clean consumer name.
 - "searchQuery" MUST contain Brand, Model Family, CPU, and GPU for e-commerce search.
-- "price" = your best estimate of typical retail pricing in India. Overestimate rather than underestimate.
+- "price" = the REAL price you found on Amazon.in or Flipkart.com. DO NOT guess or estimate.
 - Do NOT generate URLs. Omit "url" and "buyLinks" fields entirely.
-- storePrices = set to empty array []. Real prices will be fetched live.
-- "lowestPrice" = set EQUAL to "price".
+- storePrices: Include the stores where you found this laptop. Example: [{"store": "Amazon", "price": 74990, "inStock": true}, {"store": "Flipkart", "price": 73990, "inStock": true}]. Only include stores where the laptop is actually available.
+- "lowestPrice" = the lowest price across all stores you found.
 ${isGaming ? `- Include "fpsEstimates" array with exactly 6 games: GTA V, Red Dead Redemption 2, Valorant, Fortnite, Cyberpunk 2077, and Elden Ring. Provide realistic FPS values for the laptop GPU. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
 
 CRITICAL JSON RULE: NEVER use unescaped double-quotes inside string values. Use single quotes or describe dimensions textually (e.g., "15.6-inch" not "15.6\\"").
@@ -616,7 +659,14 @@ Replace the example with 3 REAL, CURRENT (${new Date().getFullYear()}) laptops. 
 
 
   try {
-    const text = await generateWithFallback(prompt);
+    // PRIMARY: Use Google Search grounding to get real store data
+    let text: string;
+    try {
+      text = await generateWithGrounding(prompt);
+    } catch (groundingErr: any) {
+      console.warn('[Grounding] Failed, falling back to non-grounded:', groundingErr.message?.substring(0, 100));
+      text = await generateWithFallback(prompt);
+    }
 
     const jsonText = extractJSON(text);
 

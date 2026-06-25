@@ -22,7 +22,6 @@ import { fetchGeminiLaptops } from '@/lib/geminiApi';
 import { useBucketStore } from '@/store/bucketStore';
 import { cn } from '@/lib/utils';
 import { apiCache } from '@/lib/apiCache';
-import { verifyLaptopStock } from '@/lib/livePricingApi';
 
 // ─── Store config ──────────────────────────────────────────
 const STORE_STYLES: Record<string, { color: string; bg: string; border: string; hoverBg: string }> = {
@@ -156,51 +155,28 @@ const LaptopResults = () => {
         }
 
         const budgetCeiling = Math.round((answers.budget || 100000) * 1.15);
-        let validRecs: LaptopRecommendation[] = [];
-        let attempts = 0;
-        const maxAttempts = 2;
 
-        while (validRecs.length < 3 && attempts < maxAttempts) {
-          attempts++;
-          const excluded = validRecs.map(r => r.laptop.model).join(', ');
-          const answersForAI = attempts === 1 ? answers : { ...answers, _excludeModels: excluded } as any;
+        // AI searches Amazon.in & Flipkart via Google Search grounding
+        // Returns real products with real prices — no separate scraping needed
+        const batch = await fetchGeminiLaptops(answers);
 
-          // 1. Get 6 candidates from AI
-          let batch = await fetchGeminiLaptops(answersForAI);
-
-          // 2. Verify stock for all candidates in parallel
-          const stockResults = await Promise.all(
-            batch.map(rec => verifyLaptopStock(rec.laptop.searchQuery, rec.laptop.price))
-          );
-
-          // 3. Filter to only in-stock laptops and attach real prices
-          for (let i = 0; i < batch.length; i++) {
-            const rec = batch[i];
-            const stock = stockResults[i];
-
-            if (!stock.inStockAnywhere) {
-              console.warn(`[Stock] Dropping "${rec.laptop.model}" — not in stock on Amazon or Flipkart`);
-              continue;
-            }
-
-            // Attach real store prices
-            rec.laptop.storePrices = [stock.amazon, stock.flipkart]
-              .filter(s => s.inStock && s.price > 0)
-              .map(s => ({ store: s.store, price: s.price, inStock: true, url: s.url }));
-            rec.laptop.lowestPrice = stock.lowestPrice ?? rec.laptop.price;
-
-            // Budget filter
-            const price = rec.laptop.lowestPrice;
-            if (price > budgetCeiling) {
-              console.warn(`[Budget] Dropping "${rec.laptop.model}" — ₹${price} > ₹${budgetCeiling}`);
-              continue;
-            }
-
-            validRecs.push(rec);
+        // Budget filter + build search URLs for store links
+        const validRecs = batch.filter(rec => {
+          const price = rec.laptop.lowestPrice ?? rec.laptop.price;
+          if (price > budgetCeiling) {
+            console.warn(`[Budget] Dropping "${rec.laptop.model}" — ₹${price} > ₹${budgetCeiling}`);
+            return false;
           }
-        }
+          // Ensure store prices have URLs for the Deal Panel
+          if (rec.laptop.storePrices) {
+            rec.laptop.storePrices = rec.laptop.storePrices.map(s => ({
+              ...s,
+              url: s.url || buildStoreUrl(s.store, rec.laptop.searchQuery),
+            }));
+          }
+          return true;
+        });
 
-        // Take top 3
         const finalRecs = validRecs.slice(0, 3);
         apiCache.set(answers, finalRecs);
 
@@ -244,32 +220,20 @@ const LaptopResults = () => {
       const allExcluded = recommendations.map(r => r.laptop.model).join(', ');
       const answersWithExcludes = { ...answers, _excludeModels: allExcluded } as any;
 
-      // 1. Get 6 new candidates from AI
-      let batch = await fetchGeminiLaptops(answersWithExcludes);
+      // AI searches stores directly via Google Search grounding
+      const batch = await fetchGeminiLaptops(answersWithExcludes);
 
-      // 2. Verify stock for all in parallel
-      const stockResults = await Promise.all(
-        batch.map(rec => verifyLaptopStock(rec.laptop.searchQuery, rec.laptop.price))
-      );
-
-      // 3. Filter to in-stock only
-      const validNew: LaptopRecommendation[] = [];
-      for (let i = 0; i < batch.length; i++) {
-        const rec = batch[i];
-        const stock = stockResults[i];
-
-        if (!stock.inStockAnywhere) continue;
-
-        rec.laptop.storePrices = [stock.amazon, stock.flipkart]
-          .filter(s => s.inStock && s.price > 0)
-          .map(s => ({ store: s.store, price: s.price, inStock: true, url: s.url }));
-        rec.laptop.lowestPrice = stock.lowestPrice ?? rec.laptop.price;
-
-        const price = rec.laptop.lowestPrice;
-        if (price > budgetCeiling) continue;
-
-        validNew.push(rec);
-      }
+      const validNew = batch.filter(rec => {
+        const price = rec.laptop.lowestPrice ?? rec.laptop.price;
+        if (price > budgetCeiling) return false;
+        if (rec.laptop.storePrices) {
+          rec.laptop.storePrices = rec.laptop.storePrices.map(s => ({
+            ...s,
+            url: s.url || buildStoreUrl(s.store, rec.laptop.searchQuery),
+          }));
+        }
+        return true;
+      });
 
       const finalNew = validNew.slice(0, 3).map((rec, i) => ({
         ...rec,
