@@ -437,240 +437,158 @@ export async function fetchGeminiLaptops(
   const brandConstraint = (() => {
     const brands = answers.laptopBrandPreference ?? [];
     const filtered = brands.filter(b => b !== 'no-preference');
-    if (filtered.length === 0) return 'Any brand — pick the absolute best value for the budget.';
-    return `ONLY recommend laptops from: ${filtered.map(b => b.toUpperCase()).join(', ')}. STRICTLY FORBIDDEN: Any brand not in this list. A laptop from a forbidden brand is an AUTOMATIC DISQUALIFICATION.`;
-  })();
-
-  // ── STRICT display enforcement ──
-  const displayHint = (() => {
-    switch (answers.displayType) {
-      case 'vibrant-oled':
-        return 'MANDATORY: OLED display ONLY. FORBIDDEN: IPS, TN, VA panels. If the laptop does not have an OLED panel, it is DISQUALIFIED.';
-      case 'high-hertz':
-        return 'MANDATORY: High refresh rate display (120Hz or above). FORBIDDEN: 60Hz displays. If the laptop has a 60Hz panel, it is DISQUALIFIED.';
-      case 'touchscreen':
-        return 'MANDATORY: Touchscreen display. FORBIDDEN: Non-touch displays. If the laptop does not have a touchscreen, it is DISQUALIFIED.';
-      case 'standard-ips':
-        return 'MANDATORY: Standard IPS or anti-glare LCD display. FORBIDDEN: OLED displays. If the laptop has an OLED panel, it is DISQUALIFIED. Stick to IPS/LCD only.';
-      default:
-        return 'Any display type is acceptable. Choose the best display for the budget and purpose — IPS, OLED, or other.';
-    }
-  })();
-
-  // ── STRICT screen size enforcement ──
-  const screenSizeHint = (() => {
-    switch (answers.screenSize) {
-      case 'compact':
-        return 'MANDATORY: 13-inch or 14-inch screen ONLY. FORBIDDEN: 15-inch, 15.6-inch, 16-inch, or larger. Any laptop with screen >= 15 inches is DISQUALIFIED.';
-      case 'large':
-        return 'MANDATORY: 16-inch or larger screen ONLY. FORBIDDEN: 13-inch, 14-inch, 15-inch screens. Any laptop with screen < 16 inches is DISQUALIFIED.';
-      case 'standard':
-      default:
-        return 'MANDATORY: 15-inch, 15.6-inch, or 16-inch screen. FORBIDDEN: 13-inch, 14-inch (too small) and 17-inch+ (too large). Stay in the 15-16 inch range.';
-    }
-  })();
-
-  // ── STRICT portability enforcement ──
-  const mobilityHint = (() => {
-    switch (answers.mobility) {
-      case 'on-the-go':
-        return 'MANDATORY: Ultra-portable, under 1.6kg weight. MUST have long battery life (6+ hours). FORBIDDEN: Bulky gaming laptops over 2kg. If the laptop weighs more than 1.8kg, it is DISQUALIFIED.';
-      case 'stationary':
-        return 'Weight and battery are NOT constraints. Heavy desktop-replacement laptops (2.5kg+) are perfectly fine. Prioritize raw performance over portability.';
-      case 'balanced':
-      default:
-        return 'MANDATORY: Moderate weight between 1.5kg and 2.3kg. Should have 4-6 hours battery. FORBIDDEN: Ultra-heavy laptops over 2.5kg.';
-    }
-  })();
-
-  // ── STRICT build material enforcement ──
-  const buildHint = (() => {
-    switch (answers.buildMaterial) {
-      case 'premium-metal':
-        return 'MANDATORY: Aluminum or Magnesium alloy body. FORBIDDEN: Primarily plastic-bodied laptops. If the laptop has a mostly plastic chassis, it is DISQUALIFIED.';
-      case 'budget-plastic':
-        return 'Plastic body is perfectly acceptable. Focus on value — do not add premium for metal builds.';
-      case 'no-preference':
-      default:
-        return 'Any build material is acceptable. Choose based on best value.';
-    }
-  })();
-
-  // ── STRICT storage enforcement ──
-  const storageHint = (() => {
-    switch (answers.storageSize) {
-      case 'massive':
-        return 'MANDATORY: At least 2TB SSD storage. FORBIDDEN: Laptops with less than 2TB SSD. If the laptop has < 2TB SSD, it is DISQUALIFIED.';
-      case 'ample':
-        return 'MANDATORY: At least 1TB SSD storage. FORBIDDEN: Laptops with 512GB or less SSD. If the laptop has < 1TB SSD, it is DISQUALIFIED.';
-      case 'basic':
-      default:
-        return 'At least 256GB SSD. 512GB preferred.';
-    }
-  })();
-
-  // ── STRICT RAM enforcement ──
-  const ramHint = (() => {
-    const purpose = answers.purpose || 'general';
-    if (['gaming', 'ml-ai', 'content-creation', 'streaming'].includes(purpose)) {
-      return 'MANDATORY: At least 16GB RAM. FORBIDDEN: 8GB RAM laptops for this use case. If the laptop has only 8GB RAM, it is DISQUALIFIED.';
-    }
-    if (['coding', 'student'].includes(purpose)) {
-      return 'At least 8GB RAM required. 16GB preferred for multitasking.';
-    }
-    return 'At least 8GB RAM.';
+    if (filtered.length === 0) return 'Any brand';
+    return `ONLY: ${filtered.map(b => b.toUpperCase()).join(', ')}`;
   })();
 
   const budgetMax = answers.budget || 100000;
-  const budgetCeiling = Math.round(budgetMax * 1.05); // only 5% relaxation
+  const budgetCeiling = Math.round(budgetMax * 1.05);
+  const purpose = answers.purpose?.replace(/-/g, ' ') || 'general';
 
-  const prompt = `You are an expert laptop recommender for the Indian market in ${new Date().getFullYear()}.
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 1: GROUNDED SEARCH — Find real laptops on Amazon.in / Flipkart
+  // This step MUST use Google Search. No JSON, just plain text with real data.
+  // ═══════════════════════════════════════════════════════════════════
 
-IMPORTANT: You MUST use Google Search to look up REAL laptops currently listed on Amazon.in and Flipkart.com.
-Search for: "${answers.purpose?.replace(/-/g, ' ')} laptop under ${budgetMax} site:amazon.in" and "${answers.purpose?.replace(/-/g, ' ')} laptop under ${budgetMax} site:flipkart.com"
+  const searchPrompt = `You are a laptop shopping assistant. Use Google Search to find REAL laptops currently for sale in India.
 
-Generate exactly 6 laptop recommendations as a JSON array. Every laptop MUST be a real product you found on Amazon.in or Flipkart.com with a real current price.
+TASK: Search Amazon.in and Flipkart.com RIGHT NOW for "${purpose} laptop" priced between ₹${Math.round(budgetMax * 0.6)} and ₹${budgetCeiling}.
 
-${answers._excludeModels ? `DO NOT recommend these models again: ${answers._excludeModels}` : ''}
+Search queries to use:
+- "${purpose} laptop under ${budgetMax}" site:amazon.in
+- "${purpose} laptop under ${budgetMax}" site:flipkart.com
+- "best ${purpose} laptop ${new Date().getFullYear()}" India price
 
-CRITICAL AVAILABILITY RULE:
-- SEARCH Amazon.in and Flipkart.com for real laptops matching the criteria below
-- ONLY include laptops that are CURRENTLY LISTED and IN STOCK on these stores
-- Use the ACTUAL PRICE from the store listing, not an estimate
-- Every laptop MUST be verified as available to purchase RIGHT NOW
-- If you cannot verify a laptop is currently available, DO NOT include it
+${answers._excludeModels ? `SKIP these models: ${answers._excludeModels}` : ''}
+Brand preference: ${brandConstraint}
 
-═══════════════════════════════════════════════════════════
-STRICT REQUIREMENTS — ZERO TOLERANCE (except budget has 5% relaxation)
-Each requirement below is MANDATORY. Violating ANY non-budget requirement means that laptop is AUTOMATICALLY DISQUALIFIED and must be replaced.
-═══════════════════════════════════════════════════════════
+For EACH laptop you find (find at least 6), provide:
+1. Exact product name as listed on the store
+2. Brand
+3. Price as shown on the store page (in ₹)
+4. Which store(s) list it (Amazon, Flipkart, or both)
+5. Key specs: CPU, GPU, RAM, Storage, Display size, Battery life, Weight
+6. Whether it's currently in stock
 
-Step 1 - Device Type: Laptop (NOT a desktop, tablet, or 2-in-1 unless touchscreen is requested).
+CRITICAL RULES:
+- ONLY include laptops you found via search that are CURRENTLY LISTED on Amazon.in or Flipkart.com
+- Use the EXACT price shown on the store page
+- Do NOT make up or estimate prices
+- Do NOT include laptops you cannot verify are currently available
+- If a search result shows "Currently unavailable", skip that laptop
 
-Step 2 - Primary Purpose: ${answers.purpose?.replace(/-/g, ' ').toUpperCase() || 'GENERAL'}.
-  The laptop MUST be suitable for this purpose. For gaming/streaming: dedicated GPU required. For ML/AI: CUDA-capable GPU required. For coding/student/office: integrated GPU is acceptable.
+Provide your findings as a simple numbered list. Be specific with prices — use the exact ₹ amount from the store listing.`;
 
-Step 3 - Budget: Rs.${budgetMax} INR.
-  SOFT LIMIT with 5% relaxation: Maximum allowed price is Rs.${budgetCeiling}. All laptops MUST be priced AT or BELOW Rs.${budgetCeiling}.
-  HARD CEILING: Rs.${budgetCeiling}. Any laptop priced above Rs.${budgetCeiling} is IMMEDIATELY DISQUALIFIED — no exceptions, no matter how good it is.
-  IMPORTANT: Do NOT recommend expensive flagship laptops that cost 2x the budget. Stay within the price range.
+  let searchResults = '';
+  try {
+    searchResults = await generateWithGrounding(searchPrompt);
+    console.log('[Step 1] Grounded search returned', searchResults.length, 'chars');
+  } catch (err: any) {
+    console.warn('[Step 1] Grounding failed:', err.message?.substring(0, 100));
+    // If grounding fails completely, fall back to the old single-call approach
+    return await fetchLaptopsFallback(answers, isGaming, budgetMax, budgetCeiling);
+  }
 
-Step 4 - Display Type: ${displayHint}
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 2: FORMAT — Convert the search results into our JSON schema
+  // No grounding needed here, just structured output from the text data.
+  // ═══════════════════════════════════════════════════════════════════
 
-Step 5 - Screen Size: ${screenSizeHint}
+  const displayHint = (() => {
+    switch (answers.displayType) {
+      case 'vibrant-oled': return 'Prefer OLED displays';
+      case 'high-hertz': return 'Prefer 120Hz+ displays';
+      case 'touchscreen': return 'Prefer touchscreen';
+      case 'standard-ips': return 'Prefer IPS/LCD (not OLED)';
+      default: return 'Any display';
+    }
+  })();
 
-Step 6 - Portability & Weight: ${mobilityHint}
+  const screenSizeHint = (() => {
+    switch (answers.screenSize) {
+      case 'compact': return '13-14 inch only';
+      case 'large': return '16+ inch only';
+      default: return '15-16 inch preferred';
+    }
+  })();
 
-Step 7 - Build Material: ${buildHint}
+  const mobilityHint = (() => {
+    switch (answers.mobility) {
+      case 'on-the-go': return 'Under 1.6kg, long battery';
+      case 'stationary': return 'Weight doesn\'t matter, max performance';
+      default: return 'Under 2.3kg, 4-6hr battery';
+    }
+  })();
 
-Step 8 - Storage: ${storageHint}
+  const formatPrompt = `You are formatting laptop search results into JSON.
 
-Step 9 - Brand Preference: ${brandConstraint}
+Here are REAL laptops found on Amazon.in and Flipkart.com with their ACTUAL prices:
 
-Step 10 - RAM: ${ramHint}
+--- SEARCH RESULTS ---
+${searchResults}
+--- END SEARCH RESULTS ---
 
-═══════════════════════════════════════════════════════════
-DISQUALIFICATION CHECKLIST (you MUST run this for EACH laptop before including it):
-═══════════════════════════════════════════════════════════
-For each of your 3 picks, verify ALL of these. If ANY check fails, REPLACE that laptop:
- □ Display type matches Step 4 exactly (e.g., if IPS required, it MUST NOT be OLED)
- □ Screen size matches Step 5 exactly (e.g., if compact, screen MUST be 13-14 inches)
- □ Weight matches Step 6 (e.g., if ultraportable, weight MUST be under 1.8kg)
- □ Build material matches Step 7 (e.g., if metal required, body MUST be aluminum/magnesium)
- □ Storage matches Step 8 (e.g., if 1TB+ required, SSD MUST be >= 1TB)
- □ Brand matches Step 9 (e.g., if ASUS only, brand MUST be ASUS)
- □ RAM matches Step 10
- □ Price is <= Rs.${budgetCeiling}
+USER REQUIREMENTS:
+- Purpose: ${purpose}
+- Budget: ₹${budgetMax} (max ₹${budgetCeiling})
+- Display: ${displayHint}
+- Screen size: ${screenSizeHint}
+- Portability: ${mobilityHint}
+- Brand: ${brandConstraint}
 
-GENERATION PREFERENCE (apply intelligently based on budget):
+From the search results above, pick the 6 BEST matches for the user's requirements.
 
-TIER 1 — ALWAYS PREFER these CPUs (latest gen, best value):
-  - AMD: Ryzen 7000 (7xxxH/HS/U), Ryzen 8000 (8xxxH/HS/U), Ryzen AI 300
-  - Intel: 12th Gen, 13th Gen, 14th Gen Core i-series, Intel Core Ultra 100/200
-  - Apple: M2, M3, M4 (any variant)
+CRITICAL PRICING RULES:
+- Use the EXACT prices from the search results above. Do NOT change or estimate prices.
+- storePrices array: include each store where the laptop was found with its EXACT listed price.
+- Set inStock: true ONLY if the search results confirm it's available.
+- lowestPrice = the cheapest price found across stores.
 
-TIER 2 — USE ONLY IF budget makes Tier 1 unavailable:
-  - AMD Ryzen 5000 series, Intel 11th Gen, NVIDIA RTX 30-series
-
-TIER 3 — LAST RESORT:
-  - Intel 10th Gen, AMD Ryzen 4000/3000, GTX 1650/1660
-
-PREFERRED GPU tiers for gaming/content (in order of preference):
-  1st: NVIDIA RTX 4050 / 4060 / 4070 / 4080 / 4090, AMD RX 7000-series
-  2nd: RTX 3060 / 3070 / 3080 (if budget forces)
-  3rd: RTX 3050, GTX 1650 (only if truly no better option)
-
-VALUE RULES:
-- Pick the best specs-to-price ratio — not just popular brands
-- Every pick must be a real model currently sold in India
-- Justify in the "pros" why you chose this over alternatives
-
-RULES:
-- "model" MUST NOT include the MPN. Keep it to the clean consumer name.
-- "searchQuery" MUST contain Brand, Model Family, CPU, and GPU for e-commerce search.
-- "price" = the REAL price you found on Amazon.in or Flipkart.com. DO NOT guess or estimate.
-- Do NOT generate URLs. Omit "url" and "buyLinks" fields entirely.
-- storePrices: Include the stores where you found this laptop. Example: [{"store": "Amazon", "price": 74990, "inStock": true}, {"store": "Flipkart", "price": 73990, "inStock": true}]. Only include stores where the laptop is actually available.
-- "lowestPrice" = the lowest price across all stores you found.
-${isGaming ? `- Include "fpsEstimates" array with exactly 6 games: GTA V, Red Dead Redemption 2, Valorant, Fortnite, Cyberpunk 2077, and Elden Ring. Provide realistic FPS values for the laptop GPU. Each: { "game": "...", "fps": { "low": N, "medium": N, "high": N, "ultra": N } }` : '- Do NOT include fpsEstimates.'}
-
-CRITICAL JSON RULE: NEVER use unescaped double-quotes inside string values. Use single quotes or describe dimensions textually (e.g., "15.6-inch" not "15.6\\"").
-
-Return ONLY this JSON array (no markdown, no code blocks):
-
+Return ONLY a JSON array (no markdown, no code blocks):
 [
 {
   "laptop": {
     "id": "laptop-1",
-    "model": "ROG Zephyrus G14 2024",
-    "brand": "ASUS",
-    "searchQuery": "ASUS ROG Zephyrus G14 2024 Ryzen 9 RTX 4060 16GB",
-    "cpu": "AMD Ryzen 9 8945HS",
-    "gpu": "NVIDIA RTX 4060 8GB",
-    "ram": "16GB LPDDR5X",
-    "storage": "1TB PCIe 4.0 NVMe SSD",
-    "display": "14-inch 2560x1600 165Hz IPS",
-    "battery": "~8 hours",
-    "weight": "1.65 kg",
-    "performanceScore": 92,
-    "price": 94990,
-    "lowestPrice": 94990,
+    "model": "exact model name from search results",
+    "brand": "Brand",
+    "searchQuery": "Brand Model CPU GPU laptop",
+    "cpu": "exact CPU",
+    "gpu": "exact GPU or Integrated",
+    "ram": "RAM amount",
+    "storage": "Storage",
+    "display": "display details",
+    "battery": "battery info",
+    "weight": "weight",
+    "performanceScore": 85,
+    "price": 74990,
+    "lowestPrice": 73990,
     "storePrices": [
-      { "store": "Amazon", "price": 94990, "inStock": true },
-      { "store": "Flipkart", "price": 94990, "inStock": true }
+      { "store": "Amazon", "price": 74990, "inStock": true },
+      { "store": "Flipkart", "price": 73990, "inStock": true }
     ]
   },
-  "matchScore": 94,
-  "pros": ["Latest Ryzen 8000 CPU", "IPS display matches user preference"],
-  "cons": ["Gets warm under sustained GPU load"]${isGaming ? `,
+  "matchScore": 92,
+  "pros": ["real pro 1", "real pro 2"],
+  "cons": ["real con 1"]${isGaming ? `,
   "fpsEstimates": [
-    { "game": "Valorant", "fps": { "low": 300, "medium": 240, "high": 180, "ultra": 120 } },
     { "game": "GTA V", "fps": { "low": 120, "medium": 90, "high": 70, "ultra": 50 } },
-    { "game": "Fortnite", "fps": { "low": 200, "medium": 150, "high": 100, "ultra": 70 } },
-    { "game": "Cyberpunk 2077", "fps": { "low": 80, "medium": 60, "high": 45, "ultra": 30 } }
+    { "game": "Red Dead Redemption 2", "fps": { "low": 70, "medium": 55, "high": 40, "ultra": 25 } },
+    { "game": "Valorant", "fps": { "low": 300, "medium": 240, "high": 180, "ultra": 120 } },
+    { "game": "Fortnite", "fps": { "low": 150, "medium": 110, "high": 80, "ultra": 55 } },
+    { "game": "Cyberpunk 2077", "fps": { "low": 60, "medium": 45, "high": 30, "ultra": 20 } },
+    { "game": "Elden Ring", "fps": { "low": 90, "medium": 65, "high": 50, "ultra": 35 } }
   ]` : ''}
 }
 ]
 
-FINAL MANDATORY CHECK: Before returning, re-run the DISQUALIFICATION CHECKLIST above for EACH laptop. If any laptop fails any check, REPLACE IT with a compliant alternative. ESPECIALLY verify that EVERY laptop price is <= Rs.${budgetCeiling}. This is non-negotiable.
-
-Replace the example with 3 REAL, CURRENT (${new Date().getFullYear()}) laptops. Return ONLY the JSON array.
-`;
-
+IMPORTANT: Every price in your output MUST come directly from the search results above. Do NOT invent prices.
+Return ONLY the JSON array.`;
 
   try {
-    // PRIMARY: Use Google Search grounding to get real store data
-    let text: string;
-    try {
-      text = await generateWithGrounding(prompt);
-    } catch (groundingErr: any) {
-      console.warn('[Grounding] Failed, falling back to non-grounded:', groundingErr.message?.substring(0, 100));
-      text = await generateWithFallback(prompt);
-    }
-
+    const text = await generateWithFallback(formatPrompt);
     const jsonText = extractJSON(text);
-
     const rawRecs: any[] = JSON.parse(jsonText);
+    
     const recommendations: LaptopRecommendation[] = rawRecs.filter(r => {
       if (!validateLaptopRec(r)) {
         console.warn('[Laptop Validation] Dropping invalid rec:', r?.laptop?.model || 'unknown');
@@ -678,10 +596,64 @@ Replace the example with 3 REAL, CURRENT (${new Date().getFullYear()}) laptops. 
       }
       return true;
     });
-    if (recommendations.length === 0) throw new Error('AI returned no valid laptop recommendations.');
+    
+    if (recommendations.length === 0) throw new Error('No valid laptops found in search results.');
     return recommendations;
   } catch (error) {
-    console.error("Laptop Error:", error);
-    throw error;
+    console.error("Step 2 (format) failed:", error);
+    // If formatting fails, try the old single-call approach
+    return await fetchLaptopsFallback(answers, isGaming, budgetMax, budgetCeiling);
   }
 }
+
+// ── Fallback: single non-grounded call (old approach) ──────────────────────
+async function fetchLaptopsFallback(
+  answers: QuestionnaireAnswers,
+  isGaming: boolean,
+  budgetMax: number,
+  budgetCeiling: number
+): Promise<LaptopRecommendation[]> {
+  console.log('[Fallback] Using non-grounded single-call approach');
+
+  const purpose = answers.purpose?.replace(/-/g, ' ') || 'general';
+  const brandConstraint = (() => {
+    const brands = answers.laptopBrandPreference ?? [];
+    const filtered = brands.filter(b => b !== 'no-preference');
+    if (filtered.length === 0) return 'Any brand';
+    return `ONLY: ${filtered.map(b => b.toUpperCase()).join(', ')}`;
+  })();
+
+  const prompt = `You are an expert laptop recommender for India in ${new Date().getFullYear()}.
+Generate exactly 6 laptop recommendations as a JSON array.
+
+${answers._excludeModels ? `DO NOT recommend: ${answers._excludeModels}` : ''}
+
+Requirements:
+- Purpose: ${purpose}
+- Budget: ₹${budgetMax} (max ₹${budgetCeiling})
+- Brand: ${brandConstraint}
+- Only recommend laptops currently sold on Amazon.in or Flipkart.com
+- Use realistic current Indian retail prices
+
+Return ONLY a JSON array with this structure per item:
+{ "laptop": { "id": "laptop-1", "model": "Model Name", "brand": "Brand", "searchQuery": "Brand Model CPU GPU", "cpu": "CPU", "gpu": "GPU", "ram": "RAM", "storage": "Storage", "display": "Display", "battery": "Battery", "weight": "Weight", "performanceScore": 85, "price": 74990, "lowestPrice": 74990, "storePrices": [{"store": "Amazon", "price": 74990, "inStock": true}] }, "matchScore": 90, "pros": ["pro1", "pro2"], "cons": ["con1"] ${isGaming ? ', "fpsEstimates": [{"game": "GTA V", "fps": {"low": 120, "medium": 90, "high": 70, "ultra": 50}}, {"game": "Red Dead Redemption 2", "fps": {"low": 70, "medium": 55, "high": 40, "ultra": 25}}, {"game": "Valorant", "fps": {"low": 300, "medium": 240, "high": 180, "ultra": 120}}, {"game": "Fortnite", "fps": {"low": 150, "medium": 110, "high": 80, "ultra": 55}}, {"game": "Cyberpunk 2077", "fps": {"low": 60, "medium": 45, "high": 30, "ultra": 20}}, {"game": "Elden Ring", "fps": {"low": 90, "medium": 65, "high": 50, "ultra": 35}}]' : ''}  }
+
+CRITICAL: Do NOT use unescaped double quotes inside strings. Return ONLY the JSON array.`;
+
+  const text = await generateWithFallback(prompt);
+  const jsonText = extractJSON(text);
+  const rawRecs: any[] = JSON.parse(jsonText);
+  
+  const recommendations: LaptopRecommendation[] = rawRecs.filter(r => {
+    if (!validateLaptopRec(r)) {
+      console.warn('[Fallback Validation] Dropping:', r?.laptop?.model || 'unknown');
+      return false;
+    }
+    return true;
+  });
+  
+  if (recommendations.length === 0) throw new Error('AI returned no valid laptop recommendations.');
+  return recommendations;
+}
+
+
